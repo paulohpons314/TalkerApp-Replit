@@ -21,6 +21,12 @@ let mediaRecorder;
 let recordingStartTime;
 let recordingInterval;
 
+// Variáveis para análise de volume e animação
+let audioContext;
+let analyser;
+let dataArray;
+let animationFrame;
+
 // Função para formatar tempo em MM:SS
 function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
@@ -48,6 +54,64 @@ function stopRecordingTimer() {
     recordingTimer.textContent = '00:00';
 }
 
+// Função para configurar análise de volume
+function setupVolumeAnalysis() {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    
+    const source = audioContext.createMediaStreamSource(mediaStream);
+    source.connect(analyser);
+    
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    startVolumeAnimation();
+}
+
+// Função para animação baseada no volume
+function startVolumeAnimation() {
+    function animate() {
+        if (!isMainRecording) return;
+        
+        analyser.getByteFrequencyData(dataArray);
+        
+        // Calcular volume médio
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+        const normalizedVolume = Math.min(average / 50, 1); // Normalizar entre 0 e 1
+        
+        // Aplicar animação ao botão baseada no volume
+        const scale = 1 + (normalizedVolume * 0.2); // Scale entre 1 e 1.2
+        const opacity = 0.6 + (normalizedVolume * 0.4); // Opacity entre 0.6 e 1
+        
+        startRecordingBtn.style.transform = `scale(${scale})`;
+        startRecordingBtn.style.opacity = opacity;
+        
+        // Animar a borda também
+        if (normalizedVolume > 0.1) {
+            startRecordingBtn.style.boxShadow = `0 0 ${normalizedVolume * 20}px rgba(239, 68, 68, ${normalizedVolume})`;
+        }
+        
+        animationFrame = requestAnimationFrame(animate);
+    }
+    animate();
+}
+
+// Função para parar análise de volume
+function stopVolumeAnalysis() {
+    if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+    }
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+    
+    // Resetar estilos do botão
+    startRecordingBtn.style.transform = '';
+    startRecordingBtn.style.opacity = '';
+    startRecordingBtn.style.boxShadow = '';
+}
+
 // Event listener para o botão do assistente
 assistantBtn.addEventListener('click', () => {
     console.log('Botão assistente clicado - funcionalidade a implementar');
@@ -71,6 +135,9 @@ startRecordingBtn.addEventListener('click', async () => {
             
             // Iniciar o timer
             startRecordingTimer();
+            
+            // Iniciar análise de volume e animação
+            setupVolumeAnalysis();
             
             console.log('Gravação iniciada');
         } catch (error) {
@@ -97,6 +164,9 @@ startRecordingBtn.addEventListener('click', async () => {
         
         // Parar o timer
         stopRecordingTimer();
+        
+        // Parar análise de volume e animação
+        stopVolumeAnalysis();
         
         console.log('Gravação parada');
         
