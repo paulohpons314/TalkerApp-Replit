@@ -75,7 +75,14 @@ let audioChunks = [];        // Dados de áudio (não persistidos)
 
 ## Alterações Recentes
 
-### 18 de setembro de 2025
+### 18 de setembro de 2025 - Implementação de Feedback Visual Avançado
+- ✅ **Torre de Comando reorganizada:** Nova ordem Microfone → Assistente → Upload → Histórico
+- ✅ **Novo botão "Falar com Assistente":** Para consultas sem gravação prévia
+- ✅ **Timer de gravação:** Contador visível MM:SS durante gravação
+- ✅ **Animação reativa ao volume:** Feedback visual baseado no volume capturado
+- ✅ **Feedback visual melhorado:** Estados visuais claros e indicadores de atividade
+
+### 18 de setembro de 2025 - Implementação Inicial de Gravação
 - ✅ Implementada funcionalidade completa de gravação de áudio
 - ✅ Adicionadas funções de controlo de microfone
 - ✅ Modificado event listener do botão principal
