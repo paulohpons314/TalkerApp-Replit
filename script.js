@@ -4,6 +4,8 @@ const contentWindow = document.getElementById('contentWindow');
 const startRecordingBtn = document.getElementById('startRecordingBtn');
 const assistantBtn = document.getElementById('assistantBtn');
 const recordingTimer = document.getElementById('recordingTimer');
+const recordingBorder = document.getElementById('recordingBorder');
+const volumeGlow = document.getElementById('volumeGlow');
 const newTransformationBtn = document.getElementById('newTransformationBtn');
 const tabsNav = document.getElementById('tabs-nav');
 const tabsContent = document.getElementById('tabs-content');
@@ -78,16 +80,17 @@ function startVolumeAnimation() {
         const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
         const normalizedVolume = Math.min(average / 50, 1); // Normalizar entre 0 e 1
         
-        // Aplicar animação ao botão baseada no volume
-        const scale = 1 + (normalizedVolume * 0.2); // Scale entre 1 e 1.2
-        const opacity = 0.6 + (normalizedVolume * 0.4); // Opacity entre 0.6 e 1
+        // Aplicar efeito luminoso verde reativo ao volume (estilo contador de decibéis)
+        const glowIntensity = normalizedVolume * 0.8; // Intensidade entre 0 e 0.8
+        const glowRadius = normalizedVolume * 15; // Raio entre 0 e 15px
         
-        startRecordingBtn.style.transform = `scale(${scale})`;
-        startRecordingBtn.style.opacity = opacity;
-        
-        // Animar a borda também
-        if (normalizedVolume > 0.1) {
-            startRecordingBtn.style.boxShadow = `0 0 ${normalizedVolume * 20}px rgba(239, 68, 68, ${normalizedVolume})`;
+        if (normalizedVolume > 0.05) {
+            volumeGlow.style.boxShadow = `
+                inset 0 0 ${glowRadius}px rgba(110, 231, 183, ${glowIntensity}),
+                0 0 ${glowRadius * 1.5}px rgba(110, 231, 183, ${glowIntensity * 0.6})
+            `;
+        } else {
+            volumeGlow.style.boxShadow = '';
         }
         
         animationFrame = requestAnimationFrame(animate);
@@ -106,10 +109,10 @@ function stopVolumeAnalysis() {
         audioContext = null;
     }
     
-    // Resetar estilos do botão
-    startRecordingBtn.style.transform = '';
-    startRecordingBtn.style.opacity = '';
-    startRecordingBtn.style.boxShadow = '';
+    // Resetar estilos dos elementos visuais
+    volumeGlow.style.boxShadow = '';
+    recordingBorder.classList.add('hidden');
+    volumeGlow.classList.add('hidden');
 }
 
 // Event listener para o botão do assistente
@@ -122,9 +125,6 @@ assistantBtn.addEventListener('click', () => {
 startRecordingBtn.addEventListener('click', async () => {
     isMainRecording = !isMainRecording;
     commandTower.classList.toggle('is-recording', isMainRecording);
-    startRecordingBtn.classList.toggle('bg-red-500', isMainRecording);
-    startRecordingBtn.classList.toggle('text-white', isMainRecording);
-    startRecordingBtn.classList.toggle('border-white', isMainRecording);
 
     if (isMainRecording) {
         // Lógica de iniciar a gravação (primeiro clique)
@@ -132,6 +132,10 @@ startRecordingBtn.addEventListener('click', async () => {
             mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(mediaStream);
             mediaRecorder.start();
+            
+            // Ativar efeitos visuais da gravação
+            recordingBorder.classList.remove('hidden'); // Mostrar borda girando
+            volumeGlow.classList.remove('hidden'); // Mostrar efeito luminoso
             
             // Iniciar o timer
             startRecordingTimer();
@@ -146,7 +150,8 @@ startRecordingBtn.addEventListener('click', async () => {
             // Reverter o estado se houver erro
             isMainRecording = false;
             commandTower.classList.remove('is-recording');
-            startRecordingBtn.classList.remove('bg-red-500', 'text-white', 'border-white');
+            recordingBorder.classList.add('hidden');
+            volumeGlow.classList.add('hidden');
         }
         
         // Colapsar a interface para modo de gravação
