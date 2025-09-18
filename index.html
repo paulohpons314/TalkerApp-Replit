@@ -1,192 +1,84 @@
-<!-- Chosen Palette: Dark Mode com Acentos Esverdeados -->
-<!-- Application Structure Plan: A aplicação utiliza uma estrutura de dois painéis: uma "Torre de Comando" vertical e persistente para controles primários e uma "Janela de Conteúdo" expansível para exibir os resultados. Este design foi escolhido para permitir que o usuário mantenha o controle da gravação enquanto interage com outros aplicativos, expandindo a interface apenas quando o conteúdo textual se torna o foco principal. O fluxo de trabalho é cíclico, permitindo múltiplas transformações iterativas (em abas) a partir de uma única gravação original. -->
-<!-- Visualization & Content Choices: A interface é construída com HTML e Tailwind CSS. O feedback de gravação é um gradiente animado com CSS, proporcionando uma resposta visual intuitiva sem sobrecarregar a UI. Ícones são SVGs embutidos para agilidade. A interatividade, incluindo a criação dinâmica de abas e a gestão de estados da UI (gravação, processamento, etc.), é controlada com JavaScript vanilla para manter a simplicidade e a performance. -->
-<!-- CONFIRMATION: NO SVG graphics used (only inline SVG paths). NO Mermaid JS used. -->
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TalkerApp - SPA</title>
+    <title>TalkerApp</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #1a1a1d;
-        }
-
-        .talker-window {
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid #c2c0b7;
-        }
-
-        .command-tower::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 0%;
-            background: linear-gradient(to top, rgba(110, 231, 183, 0.2), rgba(110, 231, 183, 0));
-            transition: height 0.1s ease-out;
-            z-index: 0;
-        }
-
-        .command-tower.is-recording::before {
-            animation: decibel-meter 0.5s infinite alternate;
-        }
-
-        @keyframes decibel-meter {
-            0% {
-                height: 10%;
-            }
-
-            25% {
-                height: 40%;
-            }
-
-            50% {
-                height: 25%;
-            }
-
-            75% {
-                height: 60%;
-            }
-
-            100% {
-                height: 35%;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body class="flex items-center justify-center min-h-screen">
 
     <div id="talkerApp" class="talker-window rounded-lg flex overflow-hidden" style="height: 500px; width: 160px;">
-
+        
         <div id="commandTower" class="command-tower w-[160px] h-full bg-[#202022] flex-shrink-0 flex flex-col relative">
             <div class="h-[30px] bg-[#2d2d2f] flex-shrink-0 flex items-center justify-center z-10">
                 <p class="text-[#6ee7b7] text-[10px] font-bold tracking-wider">TalkerApp</p>
             </div>
-
+            
             <div class="flex-grow flex flex-col items-center pt-8 space-y-6 z-10">
-                <button id="startRecordingBtn" title="Nova Gravação"
-                    class="w-[90px] h-[90px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-red-500/20 transition-colors">
-                    <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    </svg>
+                <button id="startRecordingBtn" title="Nova Gravação" class="w-[90px] h-[90px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-red-500/20 transition-colors">
+                    <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                 </button>
-                <button title="Templates"
-                    class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-blue-500/20 transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 6h16M4 12h16M4 18h7" />
-                    </svg>
+                <button title="Templates" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-blue-500/20 transition-colors">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
                 </button>
-                <button id="uploadBtn" title="Upload"
-                    class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-green-500/20 transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
+                <button id="uploadBtn" title="Upload" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-green-500/20 transition-colors">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 </button>
-                <button title="Histórico"
-                    class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-purple-500/20 transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                <button title="Histórico" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-purple-500/20 transition-colors">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>
             </div>
-
+            
             <div class="h-[24px] bg-[#2d2d2f] flex-shrink-0 flex items-center justify-center z-10">
                 <p class="text-[#bfbdb4] text-[10px] font-light">Configurações</p>
             </div>
         </div>
 
-        <div id="contentWindow"
-            class="w-[540px] h-full bg-[#202022] border-l border-[#c2c0b7] flex-shrink-0 flex-col text-[#f0f0ef] hidden">
+        <div id="contentWindow" class="w-[540px] h-full bg-[#202022] border-l border-[#c2c0b7] flex-shrink-0 flex-col text-[#f0f0ef] hidden">
             <header class="flex-shrink-0 flex justify-between items-center p-3 border-b border-[#2d2d2f]">
-                <button id="newTransformationBtn" title="Novas Instruções"
-                    class="flex items-center space-x-2 text-[#c2c0b7] hover:text-white transition-colors p-2 rounded-md hover:bg-white/10">
-                    <svg id="newTransformationIcon" class="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
+                <button id="newTransformationBtn" title="Novas Instruções" class="flex items-center space-x-2 text-[#c2c0b7] hover:text-white transition-colors p-2 rounded-md hover:bg-white/10">
+                    <svg id="newTransformationIcon" class="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                     <span id="newTransformationText">+ Nova Transformação</span>
                 </button>
                 <div class="flex items-center space-x-3">
-                    <button title="Copiar" class="text-blue-400 hover:text-blue-300"><svg class="w-5 h-5" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z">
-                            </path>
-                        </svg></button>
-                    <button title="Exportar" class="text-green-400 hover:text-green-300"><svg class="w-5 h-5"
-                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                        </svg></button>
-                    <button title="Apagar" class="text-red-400 hover:text-red-300"><svg class="w-5 h-5" fill="none"
-                            stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                            </path>
-                        </svg></button>
+                    <button title="Copiar" class="text-blue-400 hover:text-blue-300"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>
+                    <button title="Exportar" class="text-green-400 hover:text-green-300"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg></button>
+                    <button title="Apagar" class="text-red-400 hover:text-red-300"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
                 </div>
             </header>
-
+            
             <div class="flex-shrink-0 border-b border-[#2d2d2f] px-3">
                 <nav id="tabs-nav" class="flex space-x-4">
-                    <a href="#"
-                        class="tab-item text-green-400 border-green-400 py-2 px-1 border-b-2 font-medium text-sm">Texto
-                        Processado</a>
-                    <a href="#"
-                        class="tab-item text-gray-400 border-transparent hover:text-gray-200 hover:border-gray-400 py-2 px-1 border-b-2 font-medium text-sm">Análise</a>
+                    <a href="#" class="tab-item text-green-400 border-green-400 py-2 px-1 border-b-2 font-medium text-sm">Texto Processado</a>
+                    <a href="#" class="tab-item text-gray-400 border-transparent hover:text-gray-200 hover:border-gray-400 py-2 px-1 border-b-2 font-medium text-sm">Análise</a>
                 </nav>
             </div>
 
             <div id="contentArea" class="flex-grow overflow-y-auto relative">
                 <main id="tabs-content" class="absolute inset-0 p-4">
                     <div class="tab-pane">
-                        <h1 class="text-xl font-bold mb-4">Sexta-feira, 5 de setembro - Preocupações e planejamentos
-                        </h1>
+                        <h1 class="text-xl font-bold mb-4">Sexta-feira, 5 de setembro - Preocupações e planejamentos</h1>
                         <div class="text-sm leading-relaxed space-y-3">
-                            <p>Hoje começou com uma preocupação grande: o Lui está há dois dias com problemas para
-                                respirar, o que me deixou realmente assustado pela primeira vez nesses três meses de
-                                vida dos gêmeos. Quase fomos ao pronto-socorro da Unimed em Pelotas por causa disso...
-                            </p>
-                            <p>Falamos com a pediatra por telefone, que disse poder ser resfriado ou gripe. O tempo aqui
-                                em Pedro Osório está típico deste inverno que não acaba. Estamos programando eu e a
-                                Joana irmos para Porto Alegre na semana do dia 25 para finalizar a entrega do
-                                apartamento. <strong>O dia 25 de setembro será a consulta dos gêmeos com a pediatra em
-                                    Porto Alegre.</strong> LEMBRAR QUE ESTE SERÁ O ÚLTIMO ENCONTRO COM ESTA PEDIATRA E
-                                QUE PRECISAMOS PROCURAR UM NOVO MÉDICO AQUI MAIS PRÓXIMO DE PEDRO OSÓRIO.</p>
+                            <p>Hoje começou com uma preocupação grande: o Lui está há dois dias com problemas para respirar, o que me deixou realmente assustado pela primeira vez nesses três meses de vida dos gêmeos. Quase fomos ao pronto-socorro da Unimed em Pelotas por causa disso...</p>
+                            <p>Falamos com a pediatra por telefone, que disse poder ser resfriado ou gripe. O tempo aqui em Pedro Osório está típico deste inverno que não acaba. Estamos programando eu e a Joana irmos para Porto Alegre na semana do dia 25 para finalizar a entrega do apartamento. <strong>O dia 25 de setembro será a consulta dos gêmeos com a pediatra em Porto Alegre.</strong> LEMBRAR QUE ESTE SERÁ O ÚLTIMO ENCONTRO COM ESTA PEDIATRA E QUE PRECISAMOS PROCURAR UM NOVO MÉDICO AQUI MAIS PRÓXIMO DE PEDRO OSÓRIO.</p>
                         </div>
                     </div>
-                    <div class="tab-pane hidden">
+                     <div class="tab-pane hidden">
                         <h1 class="text-xl font-bold mb-4">Análise de Sentimentos e Traços (OCEAN)</h1>
                         <div class="text-sm leading-relaxed space-y-3">
-                            <p><strong>Abertura (O):</strong> Alta - Demonstra interesse em tecnologia, desenvolvimento
-                                de aplicativos, criatividade na marcenaria e disposição para experimentar novas
-                                ferramentas.</p>
-                            <p><strong>Conscienciosidade (C):</strong> Moderada/Alta - Planeja com antecedência (viagem
-                                para Porto Alegre), se preocupa com responsabilidades, mas admite procrastinação.</p>
-                            <p><strong>Neuroticismo (N):</strong> Moderado/Alto - Ansiedade evidente com a saúde do
-                                filho, preocupações sobre decisões de carreira, conflito interno entre diferentes
-                                atividades.</p>
+                           <p><strong>Abertura (O):</strong> Alta - Demonstra interesse em tecnologia, desenvolvimento de aplicativos, criatividade na marcenaria e disposição para experimentar novas ferramentas.</p>
+                           <p><strong>Conscienciosidade (C):</strong> Moderada/Alta - Planeja com antecedência (viagem para Porto Alegre), se preocupa com responsabilidades, mas admite procrastinação.</p>
+                           <p><strong>Neuroticismo (N):</strong> Moderado/Alto - Ansiedade evidente com a saúde do filho, preocupações sobre decisões de carreira, conflito interno entre diferentes atividades.</p>
                         </div>
                     </div>
                 </main>
                 <div id="promptStatus" class="absolute inset-0 p-4 flex items-center justify-center hidden">
-                    <p id="statusText" class="text-xl text-gray-400"></p>
+                     <p id="statusText" class="text-xl text-gray-400"></p>
                 </div>
             </div>
         </div>
@@ -201,150 +93,17 @@
             <div class="border-2 border-dashed border-gray-500 rounded-lg p-10 text-center mb-6">
                 <p>Arraste e solte o arquivo aqui</p>
                 <p class="my-2 text-gray-400">ou</p>
-                <button class="bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-600">Escolher
-                    Arquivo</button>
+                <button class="bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-600">Escolher Arquivo</button>
             </div>
             <div class="flex justify-center space-x-4">
-                <p class="text-gray-400">Abrir de:</p>
-                <button class="hover:text-green-400">Google Drive</button>
-                <button class="hover:text-green-400">OneDrive</button>
-                <button class="hover:text-green-400">iCloud</button>
+                 <p class="text-gray-400">Abrir de:</p>
+                 <button class="hover:text-green-400">Google Drive</button>
+                 <button class="hover:text-green-400">OneDrive</button>
+                 <button class="hover:text-green-400">iCloud</button>
             </div>
         </div>
     </div>
 
-
-    <script>
-        const talkerApp = document.getElementById('talkerApp');
-        const commandTower = document.getElementById('commandTower');
-        const contentWindow = document.getElementById('contentWindow');
-        const startRecordingBtn = document.getElementById('startRecordingBtn');
-        const newTransformationBtn = document.getElementById('newTransformationBtn');
-        const tabsNav = document.getElementById('tabs-nav');
-        const tabsContent = document.getElementById('tabs-content');
-        const promptStatus = document.getElementById('promptStatus');
-        const statusText = document.getElementById('statusText');
-
-        let isMainRecording = false;
-        let isPromptRecording = false;
-
-        startRecordingBtn.addEventListener('click', () => {
-            isMainRecording = !isMainRecording;
-            commandTower.classList.toggle('is-recording', isMainRecording);
-            startRecordingBtn.classList.toggle('bg-red-500', isMainRecording);
-            startRecordingBtn.classList.toggle('text-white', isMainRecording);
-            startRecordingBtn.classList.toggle('border-white', isMainRecording);
-
-            if (!isMainRecording) {
-                talkerApp.style.width = '700px';
-                contentWindow.classList.remove('hidden');
-                contentWindow.classList.add('flex');
-            } else {
-                talkerApp.style.width = '160px';
-                contentWindow.classList.add('hidden');
-                contentWindow.classList.remove('flex');
-            }
-        });
-
-        const uploadBtn = document.getElementById('uploadBtn');
-        const uploadModal = document.getElementById('uploadModal');
-        const closeModalBtn = document.getElementById('closeModalBtn');
-
-        uploadBtn.addEventListener('click', () => uploadModal.classList.remove('hidden'));
-        closeModalBtn.addEventListener('click', () => uploadModal.classList.add('hidden'));
-        uploadModal.addEventListener('click', (e) => {
-            if (e.target === uploadModal) {
-                uploadModal.classList.add('hidden');
-            }
-        });
-
-        function updateTabEventListeners() {
-            document.querySelectorAll('.tab-item').forEach((tab) => {
-                const newTab = tab.cloneNode(true);
-                tab.parentNode.replaceChild(newTab, tab);
-            });
-            document.querySelectorAll('.tab-item').forEach((tab, index) => {
-                tab.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (isPromptRecording) return;
-
-                    document.querySelectorAll('.tab-item').forEach(item => {
-                        item.classList.remove('text-green-400', 'border-green-400');
-                        item.classList.add('text-gray-400', 'border-transparent');
-                    });
-                    tab.classList.add('text-green-400', 'border-green-400');
-
-                    document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
-                    document.querySelectorAll('.tab-pane')[index].classList.remove('hidden');
-                });
-            });
-        }
-
-        updateTabEventListeners();
-
-        function createNewTab() {
-            promptStatus.classList.add('hidden');
-            tabsContent.classList.remove('hidden');
-
-            const taskName = prompt("Qual o nome da nova tarefa? (ex: Resumo)", "Nova Tarefa");
-            if (taskName) {
-                const newTab = document.createElement('a');
-                newTab.href = '#';
-                newTab.className = 'tab-item text-gray-400 border-transparent py-2 px-1 border-b-2 font-medium text-sm';
-                newTab.textContent = taskName;
-                tabsNav.appendChild(newTab);
-
-                const newPane = document.createElement('div');
-                newPane.className = 'tab-pane hidden';
-                newPane.innerHTML = `
-                        <h1 class="text-xl font-bold mb-4">${taskName}</h1>
-                        <p class="text-sm leading-relaxed">Este é o resultado simulado para a tarefa "${taskName}".</p>
-                    `;
-                tabsContent.appendChild(newPane);
-
-                updateTabEventListeners();
-                newTab.click();
-            }
-        }
-
-        newTransformationBtn.addEventListener('click', () => {
-            isPromptRecording = !isPromptRecording;
-            commandTower.classList.toggle('is-recording', isPromptRecording);
-
-            const icon = document.getElementById('newTransformationIcon');
-            const text = document.getElementById('newTransformationText');
-
-            if (isPromptRecording) {
-                text.textContent = "Parar Gravação do Prompt";
-                icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10h6"></path>`;
-                icon.classList.add('animate-pulse');
-
-                tabsContent.classList.add('hidden');
-                promptStatus.classList.remove('hidden');
-                statusText.textContent = "Aguardando instruções...";
-                statusText.classList.add('animate-pulse');
-            } else {
-                text.textContent = "+ Nova Transformação";
-                icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />`;
-                icon.classList.remove('animate-pulse');
-                statusText.classList.remove('animate-pulse');
-
-                let statusMessages = ["Processando novas Instruções...", "Executando tarefa...", "Finalizando..."];
-                let i = 0;
-                statusText.textContent = statusMessages[i];
-
-                const processingInterval = setInterval(() => {
-                    i++;
-                    if (i < statusMessages.length) {
-                        statusText.textContent = statusMessages[i];
-                    } else {
-                        clearInterval(processingInterval);
-                        createNewTab();
-                    }
-                }, 1000);
-            }
-        });
-    </script>
+    <script src="script.js" defer></script>
 </body>
-
 </html>
