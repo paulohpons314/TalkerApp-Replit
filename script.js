@@ -2,6 +2,8 @@ const talkerApp = document.getElementById('talkerApp');
 const commandTower = document.getElementById('commandTower');
 const contentWindow = document.getElementById('contentWindow');
 const startRecordingBtn = document.getElementById('startRecordingBtn');
+const assistantBtn = document.getElementById('assistantBtn');
+const recordingTimer = document.getElementById('recordingTimer');
 const newTransformationBtn = document.getElementById('newTransformationBtn');
 const tabsNav = document.getElementById('tabs-nav');
 const tabsContent = document.getElementById('tabs-content');
@@ -14,6 +16,44 @@ let isPromptRecording = false;
 // Variáveis globais para controle de gravação de áudio
 let mediaStream;
 let mediaRecorder;
+
+// Variáveis para timer de gravação
+let recordingStartTime;
+let recordingInterval;
+
+// Função para formatar tempo em MM:SS
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Função para iniciar o timer de gravação
+function startRecordingTimer() {
+    recordingStartTime = Date.now();
+    recordingTimer.classList.remove('hidden');
+    recordingInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+        recordingTimer.textContent = formatTime(elapsed);
+    }, 1000);
+}
+
+// Função para parar o timer de gravação
+function stopRecordingTimer() {
+    if (recordingInterval) {
+        clearInterval(recordingInterval);
+        recordingInterval = null;
+    }
+    recordingTimer.classList.add('hidden');
+    recordingTimer.textContent = '00:00';
+}
+
+// Event listener para o botão do assistente
+assistantBtn.addEventListener('click', () => {
+    console.log('Botão assistente clicado - funcionalidade a implementar');
+    // Aqui será implementada a funcionalidade de falar com o assistente
+    alert('Funcionalidade "Falar com Assistente" será implementada em breve!');
+});
 
 startRecordingBtn.addEventListener('click', async () => {
     isMainRecording = !isMainRecording;
@@ -28,6 +68,10 @@ startRecordingBtn.addEventListener('click', async () => {
             mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(mediaStream);
             mediaRecorder.start();
+            
+            // Iniciar o timer
+            startRecordingTimer();
+            
             console.log('Gravação iniciada');
         } catch (error) {
             console.error('Erro ao aceder ao microfone:', error);
@@ -50,6 +94,10 @@ startRecordingBtn.addEventListener('click', async () => {
         if (mediaStream) {
             mediaStream.getTracks().forEach(track => track.stop());
         }
+        
+        // Parar o timer
+        stopRecordingTimer();
+        
         console.log('Gravação parada');
         
         // Expandir a interface para mostrar o conteúdo
