@@ -19,32 +19,41 @@
                 <p class="text-[#6ee7b7] text-[10px] font-bold tracking-wider">TalkerApp</p>
             </div>
             
-            <div class="flex-grow flex flex-col items-center pt-8 space-y-6 z-10">
+            <div class="flex-grow flex flex-col items-center pt-8 z-10">
                 <!-- Botão Principal: Microfone (destacado) -->
-                <div class="relative">
-                    <button id="startRecordingBtn" title="Nova Gravação" class="w-[90px] h-[90px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-red-500/20 transition-colors">
-                        <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                <div class="relative mb-6">
+                    <button id="startRecordingBtn" title="Nova Gravação" class="w-[90px] h-[90px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-red-500/20 transition-colors relative overflow-hidden">
+                        <svg class="w-10 h-10 z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                        <!-- Elemento para efeito de borda girando -->
+                        <div id="recordingBorder" class="absolute inset-0 rounded-full border-2 border-transparent hidden">
+                            <div class="absolute inset-0 rounded-full border-2 border-[#c2c0b7] border-dashed animate-spin opacity-60"></div>
+                        </div>
+                        <!-- Elemento para efeito luminoso verde (decibéis) -->
+                        <div id="volumeGlow" class="absolute inset-0 rounded-full hidden pointer-events-none"></div>
                     </button>
-                    <!-- Timer de gravação -->
-                    <div id="recordingTimer" class="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-[#6ee7b7] text-xs font-mono hidden">
+                    <!-- Timer de gravação - ajustado para não sobrepor outros botões -->
+                    <div id="recordingTimer" class="absolute -bottom-4 left-1/2 transform -translate-x-1/2 text-[#6ee7b7] text-xs font-mono hidden">
                         00:00
                     </div>
                 </div>
                 
-                <!-- Botão Falar com Assistente -->
-                <button id="assistantBtn" title="Falar com Assistente" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-blue-500/20 transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                </button>
-                
-                <!-- Botão Upload -->
-                <button id="uploadBtn" title="Upload" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-green-500/20 transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                </button>
-                
-                <!-- Botão Histórico -->
-                <button id="historyBtn" title="Histórico" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-purple-500/20 transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </button>
+                <!-- Botões inferiores com espaçamento ajustado -->
+                <div class="flex flex-col items-center space-y-4 mt-8">
+                    <!-- Botão Falar com Assistente -->
+                    <button id="assistantBtn" title="Falar com Assistente" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-blue-500/20 transition-colors">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                    </button>
+                    
+                    <!-- Botão Upload -->
+                    <button id="uploadBtn" title="Upload" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-green-500/20 transition-colors">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                    </button>
+                    
+                    <!-- Botão Histórico -->
+                    <button id="historyBtn" title="Histórico" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-purple-500/20 transition-colors">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
+                </div>
             </div>
             
             <div class="h-[24px] bg-[#2d2d2f] flex-shrink-0 flex items-center justify-center z-10">
