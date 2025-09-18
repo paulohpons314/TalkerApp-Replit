@@ -75,6 +75,12 @@ let audioChunks = [];        // Dados de áudio (não persistidos)
 
 ## Alterações Recentes
 
+### 18 de setembro de 2025 - Refinamento de Feedback Visual
+- ✅ **Reposicionamento do timer:** Ajustado para não sobrepor botão do Assistente
+- ✅ **Efeito borda girando:** Substituiu pulsação vermelha por animação sutil tipo "rolo de fita"
+- ✅ **Efeito luminoso esverdeado:** Feedback reativo ao volume estilo contador de decibéis
+- ✅ **Redução de ruído de foco:** Interface menos distrativa durante gravação
+
 ### 18 de setembro de 2025 - Implementação de Feedback Visual Avançado
 - ✅ **Torre de Comando reorganizada:** Nova ordem Microfone → Assistente → Upload → Histórico
 - ✅ **Novo botão "Falar com Assistente":** Para consultas sem gravação prévia
