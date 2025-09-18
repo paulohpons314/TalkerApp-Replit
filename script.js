@@ -11,83 +11,46 @@ const statusText = document.getElementById('statusText');
 let isMainRecording = false;
 let isPromptRecording = false;
 
-// Variáveis para controle de gravação de áudio
-let mediaRecorder = null;
-let audioStream = null;
-let audioChunks = [];
-
-// Função para iniciar a gravação de áudio
-async function startAudioRecording() {
-    try {
-        // Solicitar permissão para aceder ao microfone
-        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        // Configurar o MediaRecorder
-        mediaRecorder = new MediaRecorder(audioStream);
-        audioChunks = [];
-        
-        // Event listeners para o MediaRecorder
-        mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-                audioChunks.push(event.data);
-            }
-        };
-        
-        mediaRecorder.onstop = () => {
-            console.log('Gravação de áudio parada');
-            // Por enquanto não vamos guardar o áudio, apenas limpar os chunks
-            audioChunks = [];
-        };
-        
-        // Iniciar a gravação
-        mediaRecorder.start();
-        console.log('Gravação de áudio iniciada');
-        
-        return true;
-    } catch (error) {
-        console.error('Erro ao aceder ao microfone:', error);
-        alert('Erro ao aceder ao microfone. Verifique as permissões do navegador.');
-        return false;
-    }
-}
-
-// Função para parar a gravação de áudio
-function stopAudioRecording() {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
-        console.log('A parar gravação de áudio...');
-    }
-    
-    if (audioStream) {
-        // Parar todas as faixas do stream para libertar o microfone
-        audioStream.getTracks().forEach(track => track.stop());
-        audioStream = null;
-    }
-}
+// Variáveis globais para controle de gravação de áudio
+let mediaStream;
+let mediaRecorder;
 
 startRecordingBtn.addEventListener('click', async () => {
-    // Se estamos a começar a gravar
-    if (!isMainRecording) {
-        const recordingStarted = await startAudioRecording();
-        
-        // Só atualizar o estado visual se a gravação foi iniciada com sucesso
-        if (recordingStarted) {
-            isMainRecording = true;
-            commandTower.classList.add('is-recording');
-            startRecordingBtn.classList.add('bg-red-500', 'text-white', 'border-white');
-            
-            // Colapsar a interface para modo de gravação
-            talkerApp.style.width = '160px';
-            contentWindow.classList.add('hidden');
-            contentWindow.classList.remove('flex');
+    isMainRecording = !isMainRecording;
+    commandTower.classList.toggle('is-recording', isMainRecording);
+    startRecordingBtn.classList.toggle('bg-red-500', isMainRecording);
+    startRecordingBtn.classList.toggle('text-white', isMainRecording);
+    startRecordingBtn.classList.toggle('border-white', isMainRecording);
+
+    if (isMainRecording) {
+        // Lógica de iniciar a gravação (primeiro clique)
+        try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(mediaStream);
+            mediaRecorder.start();
+            console.log('Gravação iniciada');
+        } catch (error) {
+            console.error('Erro ao aceder ao microfone:', error);
+            alert('Erro ao aceder ao microfone. Verifique as permissões do navegador.');
+            // Reverter o estado se houver erro
+            isMainRecording = false;
+            commandTower.classList.remove('is-recording');
+            startRecordingBtn.classList.remove('bg-red-500', 'text-white', 'border-white');
         }
-    } else {
-        // Parar a gravação
-        stopAudioRecording();
         
-        isMainRecording = false;
-        commandTower.classList.remove('is-recording');
-        startRecordingBtn.classList.remove('bg-red-500', 'text-white', 'border-white');
+        // Colapsar a interface para modo de gravação
+        talkerApp.style.width = '160px';
+        contentWindow.classList.add('hidden');
+        contentWindow.classList.remove('flex');
+    } else {
+        // Lógica de parar a gravação (segundo clique)
+        if (mediaRecorder) {
+            mediaRecorder.stop();
+        }
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+        }
+        console.log('Gravação parada');
         
         // Expandir a interface para mostrar o conteúdo
         talkerApp.style.width = '700px';
