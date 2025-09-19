@@ -128,7 +128,7 @@ function setupVolumeAnalysis() {
     startVolumeAnimation();
 }
 
-// Função para animação baseada no volume
+// Função para animação baseada no volume - Estilo medidor de áudio profissional
 function startVolumeAnimation() {
     function animate() {
         if (!isMainRecording) return;
@@ -137,21 +137,28 @@ function startVolumeAnimation() {
         
         // Calcular volume médio
         const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-        const normalizedVolume = Math.min(average / 50, 1); // Normalizar entre 0 e 1
+        const normalizedVolume = Math.min(average / 40, 1); // Normalizar mais sensível
         
-        // Aplicar efeito luminoso verde reativo ao volume (estilo contador de decibéis) na torre
-        const glowIntensity = normalizedVolume * 0.3; // Intensidade mais sutil para a torre
+        // Simular ruído ambiente constante (oscilação base) como em medidores reais
+        const noiseFloor = 0.15 + (Math.random() * 0.1); // Base 15-25% sempre ativa
         
-        if (normalizedVolume > 0.05) {
-            towerVolumeGlow.style.background = `
-                linear-gradient(45deg, 
-                    rgba(110, 231, 183, ${glowIntensity}) 0%, 
-                    rgba(34, 197, 94, ${glowIntensity * 0.7}) 50%, 
-                    rgba(22, 163, 74, ${glowIntensity * 0.5}) 100%)
-            `;
-        } else {
-            towerVolumeGlow.style.background = '';
-        }
+        // Combinar ruído ambiente com volume real
+        const finalVolume = Math.max(noiseFloor, normalizedVolume);
+        
+        // Intensidade muito mais destacada para efeito realista
+        const glowIntensity = finalVolume * 0.8; // Intensidade alta como medidor real
+        const heightPercentage = Math.min(finalVolume * 70 + 10, 80); // 10% a 80% de altura
+        
+        // Efeito luminoso verde reativo mais intenso
+        towerVolumeGlow.style.background = `
+            linear-gradient(45deg, 
+                rgba(110, 231, 183, ${glowIntensity}) 0%, 
+                rgba(34, 197, 94, ${glowIntensity * 0.8}) 50%, 
+                rgba(22, 163, 74, ${glowIntensity * 0.6}) 100%)
+        `;
+        
+        // Simular altura do medidor de decibéis na torre
+        commandTower.style.setProperty('--decibel-height', `${heightPercentage}%`);
         
         animationFrame = requestAnimationFrame(animate);
     }
@@ -173,6 +180,9 @@ function stopVolumeAnalysis() {
     towerVolumeGlow.style.background = '';
     towerVolumeGlow.classList.add('hidden');
     recordingBorder.classList.add('hidden');
+    
+    // Resetar altura do medidor de decibéis
+    commandTower.style.removeProperty('--decibel-height');
 }
 
 // Event listener para o botão do assistente

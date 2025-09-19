@@ -13,13 +13,14 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 0%;
-  background: linear-gradient(to top, rgba(110, 231, 183, 0.2), rgba(110, 231, 183, 0));
-  transition: height 0.1s ease-out;
+  height: var(--decibel-height, 0%);
+  background: linear-gradient(to top, rgba(110, 231, 183, 0.3), rgba(110, 231, 183, 0.1));
+  transition: height 0.05s ease-out;
   z-index: 0;
 }
 .command-tower.is-recording::before {
-  animation: decibel-meter 0.5s infinite alternate;
+  /* Animação CSS desabilitada durante análise real de áudio */
+  animation: none;
 }
 @keyframes decibel-meter {
   0% { height: 10%; }
