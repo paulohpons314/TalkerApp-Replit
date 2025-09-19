@@ -5,10 +5,22 @@ TalkerApp é uma aplicação web de gravação de áudio com interface moderna d
 
 ## Estado Atual do Projeto
 - **Data:** 19 de setembro de 2025
-- **Status:** FASE 2 - TAREFA 3 COMPLETA - Sistema de persistência local (IndexedDB) implementado
+- **Status:** SISTEMA DE PASTAS CUSTOMIZADAS COMPLETO - Organização de gravações implementada
 - **Servidor:** Rodando na porta 5000 com cache busting implementado
 
 ## Funcionalidades Implementadas
+
+### SISTEMA DE PASTAS CUSTOMIZADAS (✅ COMPLETA)
+- ✅ **Schema IndexedDB v2:** Object store dedicado para pastas com campos id, name, created, color
+- ✅ **Migração automática:** Gravações existentes migradas para pasta "Sem Categoria"
+- ✅ **Criação de pastas:** Interface para criar novas pastas com nomes únicos e cores
+- ✅ **Seletor de pastas:** Dropdown para filtrar gravações por pasta específica
+- ✅ **Filtragem eficiente:** Queries otimizadas usando índices do IndexedDB
+- ✅ **Mover gravações:** Sistema para reorganizar gravações entre pastas
+- ✅ **Proteções robustas:** Tratamento de nomes duplicados e validações de entrada
+- ✅ **Pasta padrão:** Sistema automático "Sem Categoria" para organização inicial
+- ✅ **Consistência de dados:** IDs string consistentes em todo o sistema
+- ✅ **Atualizações em tempo real:** Interface atualiza instantaneamente nas mudanças
 
 ### FASE 2 - TAREFA 3: Sistema de Persistência Local (IndexedDB) (✅ COMPLETA)
 - ✅ **Banco IndexedDB:** Estrutura completa com schema de gravações e índices
@@ -122,6 +134,15 @@ let recordedAudioBlob = null;// Blob final da gravação (WebM)
 
 ## Alterações Recentes
 
+### 19 de setembro de 2025 - SISTEMA DE PASTAS CUSTOMIZADAS IMPLEMENTADO
+- ✅ **IndexedDB v2 completo:** Schema otimizado com object store para pastas e índice folder
+- ✅ **Migração robusta:** Conversão automática de dados existentes com pasta padrão
+- ✅ **Interface completa:** Seletor de pastas, criação, movimentação e gestão visual
+- ✅ **Filtragem profissional:** Queries eficientes por índice, sem scan completo da base
+- ✅ **Tratamento de erros:** Validação de nomes únicos e feedback claro ao usuário
+- ✅ **Consistência garantida:** IDs string uniformes, sem problemas de tipo misto
+- ✅ **UX otimizada:** Auto-seleção de pastas criadas e atualizações em tempo real
+
 ### 19 de setembro de 2025 - FASE 2 TAREFA 3: Sistema de Persistência Local Implementado
 - ✅ **IndexedDB completo:** Banco de dados local com schema otimizado para gravações
 - ✅ **Auto-save inteligente:** Salvamento automático após carregamento dos metadados
@@ -172,7 +193,7 @@ let recordedAudioBlob = null;// Blob final da gravação (WebM)
 - Console logging para debug (iniciar/parar gravação)
 
 ## Próximos Passos Potenciais
-- Implementar persistência de áudio gravado
-- Adicionar visualização de forma de onda
-- Implementar controlo de volume
-- Adicionar funcionalidades de reprodução
+- Implementar transcrição de áudio usando OpenAI Whisper
+- Adicionar análise de sentimentos usando GPT-4o
+- Sistema de duas saídas: texto refinado simples e análise avançada
+- Integração com prompts customizados do usuário para análise
