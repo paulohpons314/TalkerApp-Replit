@@ -5,7 +5,7 @@ const startRecordingBtn = document.getElementById('startRecordingBtn');
 const assistantBtn = document.getElementById('assistantBtn');
 const recordingTimer = document.getElementById('recordingTimer');
 const recordingBorder = document.getElementById('recordingBorder');
-const volumeGlow = document.getElementById('volumeGlow');
+const towerVolumeGlow = document.getElementById('towerVolumeGlow');
 const newTransformationBtn = document.getElementById('newTransformationBtn');
 const tabsNav = document.getElementById('tabs-nav');
 const tabsContent = document.getElementById('tabs-content');
@@ -80,17 +80,18 @@ function startVolumeAnimation() {
         const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
         const normalizedVolume = Math.min(average / 50, 1); // Normalizar entre 0 e 1
         
-        // Aplicar efeito luminoso verde reativo ao volume (estilo contador de decibéis)
-        const glowIntensity = normalizedVolume * 0.8; // Intensidade entre 0 e 0.8
-        const glowRadius = normalizedVolume * 15; // Raio entre 0 e 15px
+        // Aplicar efeito luminoso verde reativo ao volume (estilo contador de decibéis) na torre
+        const glowIntensity = normalizedVolume * 0.3; // Intensidade mais sutil para a torre
         
         if (normalizedVolume > 0.05) {
-            volumeGlow.style.boxShadow = `
-                inset 0 0 ${glowRadius}px rgba(110, 231, 183, ${glowIntensity}),
-                0 0 ${glowRadius * 1.5}px rgba(110, 231, 183, ${glowIntensity * 0.6})
+            towerVolumeGlow.style.background = `
+                linear-gradient(45deg, 
+                    rgba(110, 231, 183, ${glowIntensity}) 0%, 
+                    rgba(34, 197, 94, ${glowIntensity * 0.7}) 50%, 
+                    rgba(22, 163, 74, ${glowIntensity * 0.5}) 100%)
             `;
         } else {
-            volumeGlow.style.boxShadow = '';
+            towerVolumeGlow.style.background = '';
         }
         
         animationFrame = requestAnimationFrame(animate);
@@ -110,9 +111,9 @@ function stopVolumeAnalysis() {
     }
     
     // Resetar estilos dos elementos visuais
-    volumeGlow.style.boxShadow = '';
+    towerVolumeGlow.style.background = '';
+    towerVolumeGlow.classList.add('hidden');
     recordingBorder.classList.add('hidden');
-    volumeGlow.classList.add('hidden');
 }
 
 // Event listener para o botão do assistente
@@ -135,7 +136,7 @@ startRecordingBtn.addEventListener('click', async () => {
             
             // Ativar efeitos visuais da gravação
             recordingBorder.classList.remove('hidden'); // Mostrar borda girando
-            volumeGlow.classList.remove('hidden'); // Mostrar efeito luminoso
+            towerVolumeGlow.classList.remove('hidden'); // Mostrar efeito luminoso na torre
             
             // Iniciar o timer
             startRecordingTimer();
@@ -151,7 +152,7 @@ startRecordingBtn.addEventListener('click', async () => {
             isMainRecording = false;
             commandTower.classList.remove('is-recording');
             recordingBorder.classList.add('hidden');
-            volumeGlow.classList.add('hidden');
+            towerVolumeGlow.classList.add('hidden');
         }
         
         // Colapsar a interface para modo de gravação

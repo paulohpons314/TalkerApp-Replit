@@ -15,6 +15,8 @@
     <div id="talkerApp" class="talker-window rounded-lg flex overflow-hidden" style="height: 500px; width: 160px;">
         
         <div id="commandTower" class="command-tower w-[160px] h-full bg-[#202022] flex-shrink-0 flex flex-col relative">
+            <!-- Elemento para efeito luminoso verde na torre (medidor de decibéis) -->
+            <div id="towerVolumeGlow" class="absolute inset-0 rounded-lg hidden pointer-events-none transition-all duration-100"></div>
             <div class="h-[30px] bg-[#2d2d2f] flex-shrink-0 flex items-center justify-center z-10">
                 <p class="text-[#6ee7b7] text-[10px] font-bold tracking-wider">TalkerApp</p>
             </div>
@@ -28,8 +30,6 @@
                         <div id="recordingBorder" class="absolute inset-0 rounded-full border-2 border-transparent hidden">
                             <div class="absolute inset-0 rounded-full border-2 border-[#c2c0b7] border-dashed animate-spin opacity-60"></div>
                         </div>
-                        <!-- Elemento para efeito luminoso verde (decibéis) -->
-                        <div id="volumeGlow" class="absolute inset-0 rounded-full hidden pointer-events-none"></div>
                     </button>
                     <!-- Timer de gravação - ajustado para não sobrepor outros botões -->
                     <div id="recordingTimer" class="absolute -bottom-4 left-1/2 transform -translate-x-1/2 text-[#6ee7b7] text-xs font-mono hidden">
