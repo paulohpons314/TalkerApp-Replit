@@ -71,10 +71,11 @@ let recordedAudioBlob = null;// Blob final da gravação (WebM)
 ## Configuração do Ambiente
 
 ### Workflow Configurado
-- **Nome:** WebServer
-- **Comando:** `python -m http.server 5000`
+- **Nome:** TalkerApp
+- **Comando:** `static-web-server -w ./.config/static-web-server.toml`
 - **Porta:** 5000
 - **Tipo:** webview
+- **Servidor:** Static Web Server 2.33.1 (otimizado para Replit)
 
 ### Como Testar
 1. Aceder a http://localhost:5000
@@ -82,6 +83,15 @@ let recordedAudioBlob = null;// Blob final da gravação (WebM)
 3. Permitir acesso ao microfone quando solicitado
 4. Verificar que botão fica vermelho e interface colapsa
 5. Clicar novamente para parar gravação
+
+## Configuração de Rede Resolvida
+
+### 19 de setembro de 2025 - Problema de Visualização Externa Resolvido
+- ✅ **Configuração de porta corrigida:** Migração do Python HTTP Server para Static Web Server
+- ✅ **Arquivo .config/static-web-server.toml criado:** Configuração otimizada para Replit
+- ✅ **Porta 5000 mapeada externamente:** App agora acessível via interface web
+- ✅ **Compressão automática ativada:** Melhor performance de carregamento
+- ✅ **Cache control headers habilitado:** Otimização de recursos estáticos
 
 ## Alterações Recentes
 

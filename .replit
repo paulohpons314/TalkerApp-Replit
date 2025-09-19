@@ -32,15 +32,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "WebServer"
+args = "TalkerApp"
 
 [[workflows.workflow]]
-name = "WebServer"
+name = "TalkerApp"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python -m http.server 5000"
+args = "static-web-server -w ./.config/static-web-server.toml"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
@@ -53,10 +53,6 @@ externalPort = 80
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 32913
-externalPort = 3000
 
 [agent]
 expertMode = true
