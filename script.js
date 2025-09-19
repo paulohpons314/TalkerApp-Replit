@@ -351,29 +351,35 @@ function drawWaveform() {
     waveformCtx.strokeStyle = '#10b981';
     waveformCtx.lineWidth = 1;
     
-    const barWidth = canvasWidth / waveformData.length;
-    const centerY = canvasHeight / 2;
-    const canvasRect = waveformCanvas.getBoundingClientRect();
-    const scaleFactor = canvasRect.width / canvasWidth;
+    // Desenhar em CSS pixels (transformação já aplicada)
+    const cssWidth = waveformCanvas.getBoundingClientRect().width;
+    const cssHeight = waveformCanvas.getBoundingClientRect().height;
+    const barWidth = cssWidth / waveformData.length;
+    const centerY = cssHeight / 2;
     
     // Desenhar cada barra da forma de onda
     waveformData.forEach((amplitude, index) => {
         const barHeight = amplitude * centerY * 0.8; // 80% da altura máxima
-        const x = (index * barWidth) * scaleFactor;
+        const x = index * barWidth;
         const y = centerY - barHeight / 2;
         
         // Desenhar barra vertical
-        waveformCtx.fillRect(x, y, Math.max(1, (barWidth - 1) * scaleFactor), barHeight);
+        waveformCtx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight);
     });
 }
 
 // Função para desenhar forma de onda placeholder (quando há erro)
 function drawPlaceholderWaveform() {
-    waveformCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    adjustCanvasSize(); // Garantir que canvas tem tamanho correto
+    
+    const cssWidth = waveformCanvas.getBoundingClientRect().width;
+    const cssHeight = waveformCanvas.getBoundingClientRect().height;
+    
+    waveformCtx.clearRect(0, 0, cssWidth, cssHeight);
     
     waveformCtx.fillStyle = '#374151'; // Cinza escuro
-    const barWidth = canvasWidth / 50; // 50 barras
-    const centerY = canvasHeight / 2;
+    const barWidth = cssWidth / 50; // 50 barras
+    const centerY = cssHeight / 2;
     
     // Desenhar barras aleatórias simulando forma de onda
     for (let i = 0; i < 50; i++) {
@@ -398,6 +404,9 @@ function handleWaveformClick(event) {
     const newTime = clickPosition * audioElement.duration;
     audioElement.currentTime = newTime;
     
+    // Atualizar UI imediatamente (mesmo se pausado)
+    updateAudioProgress();
+    
     console.log(`Seeking para: ${formatAudioTime(newTime)}`);
 }
 
@@ -406,17 +415,25 @@ function adjustCanvasSize() {
     const rect = waveformCanvas.getBoundingClientRect();
     const devicePixelRatio = window.devicePixelRatio || 1;
     
-    // Ajustar resolução do canvas
-    canvasWidth = Math.floor(rect.width * devicePixelRatio);
-    canvasHeight = Math.floor(rect.height * devicePixelRatio);
+    // Definir tamanho em CSS pixels
+    const cssWidth = Math.floor(rect.width);
+    const cssHeight = Math.floor(rect.height);
+    
+    // Ajustar resolução do canvas para device pixels
+    canvasWidth = cssWidth * devicePixelRatio;
+    canvasHeight = cssHeight * devicePixelRatio;
     
     waveformCanvas.width = canvasWidth;
     waveformCanvas.height = canvasHeight;
     
-    // Ajustar escala do contexto
-    waveformCtx.scale(devicePixelRatio, devicePixelRatio);
+    // Definir tamanho CSS
+    waveformCanvas.style.width = cssWidth + 'px';
+    waveformCanvas.style.height = cssHeight + 'px';
     
-    console.log(`Canvas ajustado: ${canvasWidth}x${canvasHeight}`);
+    // Escalar contexto para device pixel ratio
+    waveformCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    
+    console.log(`Canvas ajustado: ${canvasWidth}x${canvasHeight} (CSS: ${cssWidth}x${cssHeight})`);
 }
 
 // Função para limpar dados de gravação anterior
