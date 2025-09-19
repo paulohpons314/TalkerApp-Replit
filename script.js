@@ -22,6 +22,11 @@ const currentTime = document.getElementById('currentTime');
 const totalTime = document.getElementById('totalTime');
 const downloadBtn = document.getElementById('downloadBtn');
 
+// Elementos para visualização de forma de onda
+const waveformCanvas = document.getElementById('waveformCanvas');
+const waveformProgress = document.getElementById('waveformProgress');
+const waveformCtx = waveformCanvas.getContext('2d');
+
 let isMainRecording = false;
 let isPromptRecording = false;
 
@@ -38,12 +43,18 @@ let audioElement = null;
 let isAudioPlaying = false;
 let audioUpdateInterval = null;
 
+// Variáveis para visualização de forma de onda
+let waveformAudioContext = null;
+let waveformData = null;
+let canvasWidth = 400;
+let canvasHeight = 48;
+
 // Variáveis para timer de gravação
 let recordingStartTime;
 let recordingInterval;
 
 // Variáveis para análise de volume e animação
-let audioContext;
+let volumeAudioContext;
 let analyser;
 let dataArray;
 let animationFrame;
@@ -112,6 +123,9 @@ function createAudioElement(audioURL, audioBlob) {
         const duration = formatAudioTime(audioElement.duration);
         totalTime.textContent = duration;
         console.log('Duração do áudio:', duration);
+        
+        // Gerar visualização de forma de onda quando os metadados estão carregados
+        generateWaveform(audioBlob);
     });
     
     audioElement.addEventListener('timeupdate', updateAudioProgress);
@@ -142,8 +156,21 @@ function hideAudioControls() {
     
     // Resetar progresso e tempo
     progressBar.style.width = '0%';
+    waveformProgress.style.width = '0%';
     currentTime.textContent = '00:00';
     totalTime.textContent = '00:00';
+    
+    // Limpar forma de onda
+    if (waveformCtx) {
+        waveformCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    }
+    waveformData = null;
+    
+    // Fechar contexto de áudio da forma de onda
+    if (waveformAudioContext) {
+        waveformAudioContext.close();
+        waveformAudioContext = null;
+    }
     
     // Revogar URL se existir
     if (audioElement && audioElement._audioURL) {
@@ -196,6 +223,7 @@ function updateAudioProgress() {
     
     const progress = (audioElement.currentTime / audioElement.duration) * 100;
     progressBar.style.width = progress + '%';
+    waveformProgress.style.width = progress + '%';
     currentTime.textContent = formatAudioTime(audioElement.currentTime);
 }
 
@@ -205,6 +233,7 @@ function handleAudioEnded() {
     playIcon.classList.remove('hidden');
     pauseIcon.classList.add('hidden');
     progressBar.style.width = '0%';
+    waveformProgress.style.width = '0%';
     currentTime.textContent = '00:00';
     audioElement.currentTime = 0;
     console.log('Reprodução finalizada');
@@ -250,6 +279,146 @@ function downloadAudio() {
     console.log('Download do áudio iniciado');
 }
 
+// FUNÇÕES PARA VISUALIZAÇÃO DE FORMA DE ONDA
+
+// Função para gerar forma de onda do áudio
+async function generateWaveform(audioBlob) {
+    try {
+        console.log('Gerando forma de onda...');
+        
+        // Ajustar canvas para resolução correta
+        adjustCanvasSize();
+        
+        // Criar contexto de áudio para análise
+        if (!waveformAudioContext) {
+            waveformAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Converter blob para ArrayBuffer
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        
+        // Decodificar dados de áudio
+        const audioBuffer = await waveformAudioContext.decodeAudioData(arrayBuffer);
+        
+        // Extrair dados do canal de áudio (usar apenas o primeiro canal)
+        const channelData = audioBuffer.getChannelData(0);
+        
+        // Reduzir resolução para ajustar ao canvas
+        const samples = Math.min(canvasWidth, channelData.length);
+        const blockSize = Math.floor(channelData.length / samples);
+        
+        waveformData = [];
+        
+        // Processar dados em blocos para criar forma de onda
+        for (let i = 0; i < samples; i++) {
+            let blockSum = 0;
+            const startIndex = blockSize * i;
+            
+            // Calcular RMS (Root Mean Square) para cada bloco
+            for (let j = 0; j < blockSize; j++) {
+                if (startIndex + j < channelData.length) {
+                    blockSum += channelData[startIndex + j] * channelData[startIndex + j];
+                }
+            }
+            
+            const rms = Math.sqrt(blockSum / blockSize);
+            waveformData.push(rms);
+        }
+        
+        // Desenhar forma de onda no canvas
+        drawWaveform();
+        console.log('Forma de onda gerada com sucesso');
+        
+    } catch (error) {
+        console.error('Erro ao gerar forma de onda:', error);
+        // Desenhar forma de onda padrão em caso de erro
+        drawPlaceholderWaveform();
+    }
+}
+
+// Função para desenhar a forma de onda no canvas
+function drawWaveform() {
+    if (!waveformData || waveformData.length === 0) {
+        drawPlaceholderWaveform();
+        return;
+    }
+    
+    // Limpar canvas
+    waveformCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    
+    // Configurações de desenho
+    waveformCtx.fillStyle = '#10b981'; // Verde (cor do tema)
+    waveformCtx.strokeStyle = '#10b981';
+    waveformCtx.lineWidth = 1;
+    
+    const barWidth = canvasWidth / waveformData.length;
+    const centerY = canvasHeight / 2;
+    const canvasRect = waveformCanvas.getBoundingClientRect();
+    const scaleFactor = canvasRect.width / canvasWidth;
+    
+    // Desenhar cada barra da forma de onda
+    waveformData.forEach((amplitude, index) => {
+        const barHeight = amplitude * centerY * 0.8; // 80% da altura máxima
+        const x = (index * barWidth) * scaleFactor;
+        const y = centerY - barHeight / 2;
+        
+        // Desenhar barra vertical
+        waveformCtx.fillRect(x, y, Math.max(1, (barWidth - 1) * scaleFactor), barHeight);
+    });
+}
+
+// Função para desenhar forma de onda placeholder (quando há erro)
+function drawPlaceholderWaveform() {
+    waveformCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    
+    waveformCtx.fillStyle = '#374151'; // Cinza escuro
+    const barWidth = canvasWidth / 50; // 50 barras
+    const centerY = canvasHeight / 2;
+    
+    // Desenhar barras aleatórias simulando forma de onda
+    for (let i = 0; i < 50; i++) {
+        const amplitude = Math.random() * 0.8 + 0.1; // Entre 0.1 e 0.9
+        const barHeight = amplitude * centerY;
+        const x = i * barWidth;
+        const y = centerY - barHeight / 2;
+        
+        waveformCtx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight);
+    }
+}
+
+// Função para handle de clique na forma de onda (seeking)
+function handleWaveformClick(event) {
+    if (!audioElement || isNaN(audioElement.duration)) return;
+    
+    const rect = waveformCanvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const clickPosition = x / rect.width;
+    
+    // Calcular nova posição no áudio
+    const newTime = clickPosition * audioElement.duration;
+    audioElement.currentTime = newTime;
+    
+    console.log(`Seeking para: ${formatAudioTime(newTime)}`);
+}
+
+// Função para ajustar tamanho do canvas
+function adjustCanvasSize() {
+    const rect = waveformCanvas.getBoundingClientRect();
+    const devicePixelRatio = window.devicePixelRatio || 1;
+    
+    // Ajustar resolução do canvas
+    canvasWidth = Math.floor(rect.width * devicePixelRatio);
+    canvasHeight = Math.floor(rect.height * devicePixelRatio);
+    
+    waveformCanvas.width = canvasWidth;
+    waveformCanvas.height = canvasHeight;
+    
+    // Ajustar escala do contexto
+    waveformCtx.scale(devicePixelRatio, devicePixelRatio);
+    
+    console.log(`Canvas ajustado: ${canvasWidth}x${canvasHeight}`);
+}
+
 // Função para limpar dados de gravação anterior
 function clearPreviousRecording() {
     audioChunks = [];
@@ -290,11 +459,11 @@ function stopRecordingTimer() {
 
 // Função para configurar análise de volume
 function setupVolumeAnalysis() {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioContext.createAnalyser();
+    volumeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = volumeAudioContext.createAnalyser();
     analyser.fftSize = 256;
     
-    const source = audioContext.createMediaStreamSource(mediaStream);
+    const source = volumeAudioContext.createMediaStreamSource(mediaStream);
     source.connect(analyser);
     
     dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -344,9 +513,9 @@ function stopVolumeAnalysis() {
         cancelAnimationFrame(animationFrame);
         animationFrame = null;
     }
-    if (audioContext) {
-        audioContext.close();
-        audioContext = null;
+    if (volumeAudioContext) {
+        volumeAudioContext.close();
+        volumeAudioContext = null;
     }
     
     // Resetar estilos dos elementos visuais
@@ -361,6 +530,9 @@ function stopVolumeAnalysis() {
 // Event listeners para controles de áudio
 playPauseBtn.addEventListener('click', toggleAudioPlayback);
 downloadBtn.addEventListener('click', downloadAudio);
+
+// Event listener para seeking na forma de onda (já adicionado, mas verificando se está funcionando)
+waveformCanvas.addEventListener('click', handleWaveformClick);
 
 // Event listener para o botão do assistente
 assistantBtn.addEventListener('click', () => {
