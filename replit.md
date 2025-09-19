@@ -4,13 +4,20 @@
 TalkerApp é uma aplicação web de gravação de áudio com interface moderna desenvolvida em HTML, CSS e JavaScript. A aplicação permite gravação de áudio usando a Web Audio API do navegador.
 
 ## Estado Atual do Projeto
-- **Data:** 18 de setembro de 2025
-- **Status:** Funcionalidade de gravação de áudio implementada
+- **Data:** 19 de setembro de 2025
+- **Status:** FASE 2 COMPLETA - Captura e armazenamento de áudio implementados
 - **Servidor:** Rodando na porta 5000
 
 ## Funcionalidades Implementadas
 
-### Gravação de Áudio (Recém Implementado)
+### FASE 2: Captura e Armazenamento de Áudio (Recém Implementado)
+- ✅ **Captura real de dados:** Chunks de áudio coletados em tempo real
+- ✅ **Criação de blob final:** Arquivo de áudio WebM gerado ao finalizar gravação
+- ✅ **Gestão de memória:** Limpeza automática de dados anteriores
+- ✅ **Event listeners completos:** MediaRecorder configurado com todos os eventos
+- ✅ **Base para processamento:** Sistema pronto para reprodução/armazenamento futuro
+
+### Gravação de Áudio (Implementado Anteriormente)
 - ✅ Solicitação automática de permissão do microfone
 - ✅ Iniciar/parar gravação com clique no botão principal
 - ✅ Controlo adequado do stream de áudio
@@ -40,23 +47,26 @@ TalkerApp é uma aplicação web de gravação de áudio com interface moderna d
 
 ## Funcionalidades de Gravação de Áudio
 
-### Variáveis de Controlo
+### Variáveis de Controlo (FASE 2 Atualizado)
 ```javascript
 let mediaRecorder = null;    // Controlo da gravação
 let audioStream = null;      // Stream do microfone  
-let audioChunks = [];        // Dados de áudio (não persistidos)
+let audioChunks = [];        // Chunks de áudio capturados
+let recordedAudioBlob = null;// Blob final da gravação (WebM)
 ```
 
-### Funções Principais
-- `startAudioRecording()` - Inicia gravação com gestão de permissões
-- `stopAudioRecording()` - Para gravação e liberta recursos
-- Event listener modificado do `startRecordingBtn` - Gere ciclo gravação
+### Funções Principais (FASE 2 Atualizado)
+- `clearPreviousRecording()` - Limpa dados de gravação anterior
+- `setupMediaRecorderEvents()` - Configura event listeners para captura de áudio
+- `handleRecordingComplete()` - Processa blob de áudio final
+- Event listener modificado do `startRecordingBtn` - Gere ciclo completo com captura de dados
 
-### Comportamento
+### Comportamento (FASE 2 Atualizado)
 1. Primeiro clique: Solicita permissão e inicia gravação
-2. Interface colapsa para modo gravação (botão fica vermelho)
-3. Segundo clique: Para gravação e restaura interface
-4. Dados de áudio não são persistidos (conforme solicitado)
+2. Interface colapsa para modo gravação (efeitos visuais ativados)
+3. Durante gravação: Chunks de áudio capturados em tempo real
+4. Segundo clique: Para gravação, cria blob final e restaura interface
+5. Dados de áudio armazenados em memória (blob WebM pronto para uso)
 
 ## Configuração do Ambiente
 
