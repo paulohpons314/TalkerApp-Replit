@@ -19,6 +19,10 @@ let isPromptRecording = false;
 let mediaStream;
 let mediaRecorder;
 
+// FASE 2: Variáveis para captura e armazenamento de dados de áudio
+let audioChunks = [];
+let recordedAudioBlob = null;
+
 // Variáveis para timer de gravação
 let recordingStartTime;
 let recordingInterval;
@@ -28,6 +32,61 @@ let audioContext;
 let analyser;
 let dataArray;
 let animationFrame;
+
+// FASE 2: Funções para captura e armazenamento de áudio
+
+// Função para configurar event listeners do MediaRecorder
+function setupMediaRecorderEvents(recorder) {
+    // Capturar dados durante a gravação
+    recorder.ondataavailable = function(event) {
+        if (event.data.size > 0) {
+            audioChunks.push(event.data);
+            console.log('Chunk de áudio capturado:', event.data.size, 'bytes');
+        }
+    };
+    
+    // Quando a gravação parar, criar o blob final
+    recorder.onstop = function() {
+        if (audioChunks.length > 0) {
+            recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            console.log('Gravação finalizada. Blob criado:', recordedAudioBlob.size, 'bytes');
+            
+            // Criar URL temporária para o áudio gravado
+            const audioURL = URL.createObjectURL(recordedAudioBlob);
+            console.log('URL do áudio:', audioURL);
+            
+            // Aqui poderíamos adicionar o áudio à interface (ex: botão de reprodução)
+            handleRecordingComplete(audioURL, recordedAudioBlob);
+        }
+    };
+    
+    recorder.onerror = function(event) {
+        console.error('Erro no MediaRecorder:', event.error);
+    };
+}
+
+// Função chamada quando a gravação é finalizada
+function handleRecordingComplete(audioURL, audioBlob) {
+    console.log('=== GRAVAÇÃO COMPLETA ===');
+    console.log('Tamanho do arquivo:', audioBlob.size, 'bytes');
+    console.log('Tipo MIME:', audioBlob.type);
+    console.log('URL para reprodução:', audioURL);
+    
+    // Aqui poderíamos:
+    // 1. Criar um botão de reprodução na interface
+    // 2. Enviar o áudio para um servidor
+    // 3. Processar o áudio localmente
+    // 4. Armazenar no localStorage/indexedDB
+    
+    // Por enquanto, apenas guardamos na memória
+}
+
+// Função para limpar dados de gravação anterior
+function clearPreviousRecording() {
+    audioChunks = [];
+    recordedAudioBlob = null;
+    console.log('Dados de gravação anteriores limpos');
+}
 
 // Função para formatar tempo em MM:SS
 function formatTime(seconds) {
@@ -130,8 +189,16 @@ startRecordingBtn.addEventListener('click', async () => {
     if (isMainRecording) {
         // Lógica de iniciar a gravação (primeiro clique)
         try {
+            // FASE 2: Limpar dados de gravação anterior
+            clearPreviousRecording();
+            
             mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(mediaStream);
+            
+            // FASE 2: Configurar event listeners para capturar dados de áudio
+            setupMediaRecorderEvents(mediaRecorder);
+            
+            // Iniciar gravação
             mediaRecorder.start();
             
             // Ativar efeitos visuais da gravação
@@ -144,7 +211,7 @@ startRecordingBtn.addEventListener('click', async () => {
             // Iniciar análise de volume e animação
             setupVolumeAnalysis();
             
-            console.log('Gravação iniciada');
+            console.log('Gravação iniciada - FASE 2: Captura de dados ativada');
         } catch (error) {
             console.error('Erro ao aceder ao microfone:', error);
             alert('Erro ao aceder ao microfone. Verifique as permissões do navegador.');
