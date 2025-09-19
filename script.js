@@ -12,6 +12,16 @@ const tabsContent = document.getElementById('tabs-content');
 const promptStatus = document.getElementById('promptStatus');
 const statusText = document.getElementById('statusText');
 
+// Elementos para controles de áudio
+const audioControls = document.getElementById('audioControls');
+const playPauseBtn = document.getElementById('playPauseBtn');
+const playIcon = document.getElementById('playIcon');
+const pauseIcon = document.getElementById('pauseIcon');
+const progressBar = document.getElementById('progressBar');
+const currentTime = document.getElementById('currentTime');
+const totalTime = document.getElementById('totalTime');
+const downloadBtn = document.getElementById('downloadBtn');
+
 let isMainRecording = false;
 let isPromptRecording = false;
 
@@ -22,6 +32,11 @@ let mediaRecorder;
 // FASE 2: Variáveis para captura e armazenamento de dados de áudio
 let audioChunks = [];
 let recordedAudioBlob = null;
+
+// Variáveis para reprodução de áudio
+let audioElement = null;
+let isAudioPlaying = false;
+let audioUpdateInterval = null;
 
 // Variáveis para timer de gravação
 let recordingStartTime;
@@ -72,19 +87,177 @@ function handleRecordingComplete(audioURL, audioBlob) {
     console.log('Tipo MIME:', audioBlob.type);
     console.log('URL para reprodução:', audioURL);
     
-    // Aqui poderíamos:
-    // 1. Criar um botão de reprodução na interface
-    // 2. Enviar o áudio para um servidor
-    // 3. Processar o áudio localmente
-    // 4. Armazenar no localStorage/indexedDB
+    // Criar elemento de áudio e mostrar controles
+    createAudioElement(audioURL, audioBlob);
+    showAudioControls();
+}
+
+// Função para criar elemento de áudio
+function createAudioElement(audioURL, audioBlob) {
+    // Limpar áudio anterior se existir e revogar URL anterior
+    if (audioElement) {
+        audioElement.pause();
+        if (audioElement.src) {
+            URL.revokeObjectURL(audioElement.src);
+        }
+        audioElement.src = '';
+    }
     
-    // Por enquanto, apenas guardamos na memória
+    // Criar novo elemento de áudio
+    audioElement = new Audio(audioURL);
+    audioElement.preload = 'metadata';
+    
+    // Event listeners para o áudio
+    audioElement.addEventListener('loadedmetadata', () => {
+        const duration = formatAudioTime(audioElement.duration);
+        totalTime.textContent = duration;
+        console.log('Duração do áudio:', duration);
+    });
+    
+    audioElement.addEventListener('timeupdate', updateAudioProgress);
+    audioElement.addEventListener('ended', handleAudioEnded);
+    audioElement.addEventListener('error', handleAudioError);
+    
+    // Armazenar referência do blob e URL para download
+    audioElement._audioBlob = audioBlob;
+    audioElement._audioURL = audioURL;
+}
+
+// Função para mostrar controles de áudio
+function showAudioControls() {
+    audioControls.classList.remove('hidden');
+    // Ajustar posição do conteúdo das tabs
+    tabsContent.style.top = audioControls.offsetHeight + 'px';
+}
+
+// Função para esconder controles de áudio
+function hideAudioControls() {
+    audioControls.classList.add('hidden');
+    tabsContent.style.top = '0';
+    
+    // Parar reprodução se estiver tocando
+    if (audioElement && isAudioPlaying) {
+        stopAudioPlayback();
+    }
+    
+    // Resetar progresso e tempo
+    progressBar.style.width = '0%';
+    currentTime.textContent = '00:00';
+    totalTime.textContent = '00:00';
+    
+    // Revogar URL se existir
+    if (audioElement && audioElement._audioURL) {
+        URL.revokeObjectURL(audioElement._audioURL);
+    }
+}
+
+// Função para alternar play/pause
+function toggleAudioPlayback() {
+    if (!audioElement) return;
+    
+    if (isAudioPlaying) {
+        stopAudioPlayback();
+    } else {
+        startAudioPlayback();
+    }
+}
+
+// Função para iniciar reprodução
+function startAudioPlayback() {
+    if (!audioElement) return;
+    
+    audioElement.play()
+        .then(() => {
+            isAudioPlaying = true;
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+            console.log('Reprodução iniciada');
+        })
+        .catch(error => {
+            console.error('Erro ao reproduzir áudio:', error);
+            handleAudioError(error);
+        });
+}
+
+// Função para parar reprodução
+function stopAudioPlayback() {
+    if (!audioElement) return;
+    
+    audioElement.pause();
+    isAudioPlaying = false;
+    playIcon.classList.remove('hidden');
+    pauseIcon.classList.add('hidden');
+    console.log('Reprodução pausada');
+}
+
+// Função para atualizar progresso do áudio
+function updateAudioProgress() {
+    if (!audioElement || isNaN(audioElement.duration)) return;
+    
+    const progress = (audioElement.currentTime / audioElement.duration) * 100;
+    progressBar.style.width = progress + '%';
+    currentTime.textContent = formatAudioTime(audioElement.currentTime);
+}
+
+// Função para quando o áudio termina
+function handleAudioEnded() {
+    isAudioPlaying = false;
+    playIcon.classList.remove('hidden');
+    pauseIcon.classList.add('hidden');
+    progressBar.style.width = '0%';
+    currentTime.textContent = '00:00';
+    audioElement.currentTime = 0;
+    console.log('Reprodução finalizada');
+}
+
+// Função para tratar erros de áudio
+function handleAudioError(error) {
+    console.error('Erro no áudio:', error);
+    isAudioPlaying = false;
+    playIcon.classList.remove('hidden');
+    pauseIcon.classList.add('hidden');
+}
+
+// Função para formatar tempo do áudio
+function formatAudioTime(seconds) {
+    if (isNaN(seconds)) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Função para download do áudio
+function downloadAudio() {
+    if (!audioElement || !audioElement._audioBlob) {
+        console.error('Nenhum áudio disponível para download');
+        return;
+    }
+    
+    const blob = audioElement._audioBlob;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+    
+    a.href = url;
+    a.download = `talker_recording_${timestamp}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    // Revogar URL imediatamente após o download
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    
+    console.log('Download do áudio iniciado');
 }
 
 // Função para limpar dados de gravação anterior
 function clearPreviousRecording() {
     audioChunks = [];
     recordedAudioBlob = null;
+    
+    // Esconder controles de áudio da gravação anterior
+    hideAudioControls();
+    
     console.log('Dados de gravação anteriores limpos');
 }
 
@@ -184,6 +357,10 @@ function stopVolumeAnalysis() {
     // Resetar altura do medidor de decibéis
     commandTower.style.removeProperty('--decibel-height');
 }
+
+// Event listeners para controles de áudio
+playPauseBtn.addEventListener('click', toggleAudioPlayback);
+downloadBtn.addEventListener('click', downloadAudio);
 
 // Event listener para o botão do assistente
 assistantBtn.addEventListener('click', () => {

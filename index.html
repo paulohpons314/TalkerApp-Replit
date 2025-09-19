@@ -82,7 +82,40 @@
             </div>
 
             <div id="contentArea" class="flex-grow overflow-y-auto relative">
-                <main id="tabs-content" class="absolute inset-0 p-4">
+                <!-- Controles de Áudio - Aparece quando há gravação disponível -->
+                <div id="audioControls" class="border-b border-[#2d2d2f] p-4 bg-[#1a1a1c] hidden">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <button id="playPauseBtn" class="w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center text-white transition-colors">
+                                <svg id="playIcon" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                                <svg id="pauseIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                                </svg>
+                            </button>
+                            <div class="flex-grow">
+                                <div class="flex items-center space-x-2 text-xs text-gray-400">
+                                    <span id="currentTime">00:00</span>
+                                    <div class="flex-grow h-2 bg-gray-700 rounded-full overflow-hidden">
+                                        <div id="progressBar" class="h-full bg-green-500 transition-all duration-100" style="width: 0%"></div>
+                                    </div>
+                                    <span id="totalTime">00:00</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Última gravação</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button id="downloadBtn" title="Baixar Áudio" class="w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white hover:border-gray-400 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <main id="tabs-content" class="absolute inset-0 p-4" style="top: 0;">
                     <div class="tab-pane">
                         <h1 class="text-xl font-bold mb-4">Sexta-feira, 5 de setembro - Preocupações e planejamentos</h1>
                         <div class="text-sm leading-relaxed space-y-3">
