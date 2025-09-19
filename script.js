@@ -36,6 +36,11 @@ const recordingsEmptyState = document.getElementById('recordingsEmptyState');
 const recordingsCount = document.getElementById('recordingsCount');
 const recordingsSize = document.getElementById('recordingsSize');
 
+// Elementos para sistema de pastas
+const folderSelector = document.getElementById('folderSelector');
+const createFolderBtn = document.getElementById('createFolderBtn');
+const manageFoldersBtn = document.getElementById('manageFoldersBtn');
+
 let isMainRecording = false;
 let isPromptRecording = false;
 
@@ -61,8 +66,13 @@ let canvasHeight = 48;
 // Variáveis para persistência local
 let dbConnection = null;
 const DB_NAME = 'TalkerAppDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incrementado para adicionar pastas
 const STORE_NAME = 'recordings';
+const FOLDERS_STORE = 'folders';
+
+// Variáveis para sistema de pastas
+let currentFolder = 'all'; // 'all', 'uncategorized', ou ID da pasta
+let availableFolders = [];
 
 // Variáveis para timer de gravação
 let recordingStartTime;
@@ -491,7 +501,8 @@ async function initializeDB() {
         
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
-            console.log('Criando estrutura do banco de dados...');
+            const transaction = event.target.transaction;
+            console.log('Atualizando estrutura do banco de dados...');
             
             // Criar object store para gravações
             if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -504,8 +515,52 @@ async function initializeDB() {
                 store.createIndex('timestamp', 'timestamp', { unique: false });
                 store.createIndex('title', 'title', { unique: false });
                 store.createIndex('duration', 'duration', { unique: false });
+                store.createIndex('folder', 'folder', { unique: false });
                 
                 console.log('Object store "recordings" criado');
+            } else if (event.oldVersion < 2) {
+                // Migração para versão 2 - adicionar índice de pasta
+                const store = transaction.objectStore(STORE_NAME);
+                if (!store.indexNames.contains('folder')) {
+                    store.createIndex('folder', 'folder', { unique: false });
+                }
+                
+                // Atualizar gravações existentes para ter pasta padrão
+                const getAllRequest = store.getAll();
+                getAllRequest.onsuccess = () => {
+                    const recordings = getAllRequest.result;
+                    recordings.forEach(recording => {
+                        if (!recording.folder) {
+                            recording.folder = 'uncategorized';
+                            store.put(recording);
+                        }
+                    });
+                };
+                
+                // Aguardar migração completar antes de resolver
+                transaction.oncomplete = () => {
+                    console.log('Migração de gravações completa');
+                };
+            }
+            
+            // Criar object store para pastas
+            if (!db.objectStoreNames.contains(FOLDERS_STORE)) {
+                const foldersStore = db.createObjectStore(FOLDERS_STORE, {
+                    keyPath: 'id' // Sem autoIncrement - usaremos IDs string
+                });
+                
+                foldersStore.createIndex('name', 'name', { unique: true });
+                foldersStore.createIndex('created', 'created', { unique: false });
+                
+                console.log('Object store "folders" criado');
+                
+                // Criar pasta padrão "Sem Categoria"
+                foldersStore.add({
+                    id: 'uncategorized',
+                    name: 'Sem Categoria',
+                    created: Date.now(),
+                    color: '#6b7280'
+                });
             }
         };
     });
@@ -521,6 +576,12 @@ async function saveRecording(audioBlob, duration, title = null) {
         const transaction = dbConnection.transaction([STORE_NAME], 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         
+        // Determinar pasta para nova gravação
+        let targetFolder = 'uncategorized'; // Padrão
+        if (currentFolder && currentFolder !== 'all') {
+            targetFolder = currentFolder;
+        }
+        
         // Criar objeto de gravação
         const recording = {
             title: title || `Gravação ${new Date().toLocaleString('pt-BR')}`,
@@ -528,7 +589,8 @@ async function saveRecording(audioBlob, duration, title = null) {
             duration: duration,
             audioBlob: audioBlob,
             size: audioBlob.size,
-            type: audioBlob.type
+            type: audioBlob.type,
+            folder: targetFolder
         };
         
         const request = store.add(recording);
@@ -637,6 +699,176 @@ async function getRecordingsStats() {
     };
 }
 
+// FUNÇÕES PARA GERENCIAMENTO DE PASTAS
+
+// Função para carregar todas as pastas
+async function loadAllFolders() {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    return new Promise((resolve, reject) => {
+        const transaction = dbConnection.transaction([FOLDERS_STORE], 'readonly');
+        const store = transaction.objectStore(FOLDERS_STORE);
+        const request = store.getAll();
+        
+        request.onerror = () => {
+            console.error('Erro ao carregar pastas:', request.error);
+            reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+            const folders = request.result.sort((a, b) => a.name.localeCompare(b.name));
+            console.log('Pastas carregadas:', folders.length);
+            resolve(folders);
+        };
+    });
+}
+
+// Função para criar nova pasta
+async function createFolder(name, color = '#6b7280') {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    return new Promise((resolve, reject) => {
+        const transaction = dbConnection.transaction([FOLDERS_STORE], 'readwrite');
+        const store = transaction.objectStore(FOLDERS_STORE);
+        
+        // Gerar ID único baseado em timestamp e random
+        const folderId = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        
+        const folder = {
+            id: folderId,
+            name: name.trim(),
+            created: Date.now(),
+            color: color
+        };
+        
+        const request = store.add(folder);
+        
+        request.onerror = () => {
+            console.error('Erro ao criar pasta:', request.error);
+            if (request.error.name === 'ConstraintError') {
+                reject(new Error('Já existe uma pasta com este nome. Escolha outro nome.'));
+            } else {
+                reject(request.error);
+            }
+        };
+        
+        request.onsuccess = () => {
+            console.log('Pasta criada com ID:', folderId);
+            resolve(folderId);
+        };
+    });
+}
+
+// Função para excluir pasta
+async function deleteFolder(folderId) {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    // Não permitir excluir pasta "uncategorized"
+    if (folderId === 'uncategorized') {
+        throw new Error('Não é possível excluir a pasta padrão');
+    }
+    
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Primeiro, mover todas as gravações desta pasta para "uncategorized"
+            const recordings = await loadRecordingsByFolder(folderId);
+            
+            for (const recording of recordings) {
+                await moveRecordingToFolder(recording.id, 'uncategorized');
+            }
+            
+            // Depois excluir a pasta
+            const transaction = dbConnection.transaction([FOLDERS_STORE], 'readwrite');
+            const store = transaction.objectStore(FOLDERS_STORE);
+            const request = store.delete(folderId);
+            
+            request.onerror = () => {
+                console.error('Erro ao excluir pasta:', request.error);
+                reject(request.error);
+            };
+            
+            request.onsuccess = () => {
+                console.log('Pasta excluída com sucesso');
+                resolve();
+            };
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+// Função para carregar gravações por pasta
+async function loadRecordingsByFolder(folderId) {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    return new Promise((resolve, reject) => {
+        const transaction = dbConnection.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const index = store.index('folder');
+        const request = index.getAll(folderId);
+        
+        request.onerror = () => {
+            console.error('Erro ao carregar gravações da pasta:', request.error);
+            reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+            const recordings = request.result.sort((a, b) => b.timestamp - a.timestamp);
+            resolve(recordings);
+        };
+    });
+}
+
+// Função para mover gravação para pasta
+async function moveRecordingToFolder(recordingId, folderId) {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    return new Promise((resolve, reject) => {
+        const transaction = dbConnection.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        
+        // Primeiro carregar a gravação
+        const getRequest = store.get(recordingId);
+        getRequest.onsuccess = () => {
+            const recording = getRequest.result;
+            if (!recording) {
+                reject(new Error('Gravação não encontrada'));
+                return;
+            }
+            
+            // Atualizar a pasta
+            recording.folder = folderId;
+            
+            // Salvar de volta
+            const putRequest = store.put(recording);
+            putRequest.onerror = () => {
+                console.error('Erro ao mover gravação:', putRequest.error);
+                reject(putRequest.error);
+            };
+            
+            putRequest.onsuccess = () => {
+                console.log('Gravação movida para pasta:', folderId);
+                resolve();
+            };
+        };
+        
+        getRequest.onerror = () => {
+            console.error('Erro ao carregar gravação:', getRequest.error);
+            reject(getRequest.error);
+        };
+    });
+}
+
 // FUNÇÕES PARA INTERFACE DE GRAVAÇÕES
 
 // Função para atualizar lista de gravações na interface
@@ -647,7 +879,14 @@ async function updateRecordingsList() {
     }
     
     try {
-        const recordings = await loadAllRecordings();
+        // Carregar gravações conforme pasta selecionada
+        let recordings;
+        if (currentFolder === 'all') {
+            recordings = await loadAllRecordings();
+        } else {
+            recordings = await loadRecordingsByFolder(currentFolder);
+        }
+        
         const stats = await getRecordingsStats();
         
         // Atualizar estatísticas no cabeçalho
@@ -698,6 +937,11 @@ function createRecordingElement(recording) {
                 </div>
             </div>
             <div class="flex items-center space-x-1 ml-2">
+                <button class="move-recording-btn w-8 h-8 rounded-full border border-blue-600 flex items-center justify-center text-blue-400 hover:text-blue-300 hover:border-blue-500 transition-colors" title="Mover para Pasta">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2z"></path>
+                    </svg>
+                </button>
                 <button class="play-recording-btn w-8 h-8 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center text-white transition-colors" title="Reproduzir">
                     <svg class="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z"/>
@@ -718,10 +962,12 @@ function createRecordingElement(recording) {
     `;
     
     // Event listeners para os botões
+    const moveBtn = div.querySelector('.move-recording-btn');
     const playBtn = div.querySelector('.play-recording-btn');
     const downloadRecordingBtn = div.querySelector('.download-recording-btn');
     const deleteBtn = div.querySelector('.delete-recording-btn');
     
+    moveBtn.addEventListener('click', () => showMoveRecordingDialog(recording.id));
     playBtn.addEventListener('click', () => playRecording(recording.id));
     downloadRecordingBtn.addEventListener('click', () => downloadRecording(recording));
     deleteBtn.addEventListener('click', () => deleteRecordingWithConfirmation(recording.id));
@@ -788,15 +1034,119 @@ async function deleteRecordingWithConfirmation(recordingId) {
 }
 
 // Função para mostrar painel de gravações
-function showRecordingsPane() {
+async function showRecordingsPane() {
     // Ocultar todas as tabs
     document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
     
     // Mostrar painel de gravações
     recordingsPane.classList.remove('hidden');
     
+    // Atualizar seletor de pastas
+    await updateFolderSelector();
+    
     // Atualizar lista
     updateRecordingsList();
+}
+
+// Função para atualizar seletor de pastas
+async function updateFolderSelector() {
+    try {
+        const folders = await loadAllFolders();
+        availableFolders = folders;
+        
+        // Limpar opções exceto as padrões
+        folderSelector.innerHTML = `
+            <option value="all">📁 Todas as Gravações</option>
+            <option value="uncategorized">📂 Sem Categoria</option>
+        `;
+        
+        // Adicionar pastas personalizadas
+        folders.forEach(folder => {
+            if (folder.id !== 'uncategorized') {
+                const option = document.createElement('option');
+                option.value = folder.id;
+                option.textContent = `📁 ${folder.name}`;
+                folderSelector.appendChild(option);
+            }
+        });
+        
+        // Restaurar seleção atual
+        folderSelector.value = currentFolder;
+        
+    } catch (error) {
+        console.error('Erro ao atualizar seletor de pastas:', error);
+    }
+}
+
+// Função para criar nova pasta
+async function showCreateFolderDialog() {
+    const folderName = prompt('Nome da nova pasta:');
+    if (!folderName || !folderName.trim()) return;
+    
+    try {
+        const folderId = await createFolder(folderName.trim());
+        await updateFolderSelector();
+        
+        // Selecionar a nova pasta automaticamente
+        currentFolder = folderId;
+        folderSelector.value = folderId;
+        await updateRecordingsList();
+        
+        console.log('Pasta criada com sucesso:', folderName);
+    } catch (error) {
+        console.error('Erro ao criar pasta:', error);
+        if (error.message.includes('Já existe uma pasta')) {
+            alert(error.message);
+        } else {
+            alert('Erro ao criar pasta. Tente novamente.');
+        }
+    }
+}
+
+// Função para mostrar dialog de mover gravação
+async function showMoveRecordingDialog(recordingId) {
+    try {
+        const folders = await loadAllFolders();
+        
+        // Criar lista de opções
+        let options = 'Escolha a pasta de destino:\n\n';
+        options += '0 - Sem Categoria\n';
+        
+        let optionIndex = 1;
+        folders.forEach(folder => {
+            if (folder.id !== 'uncategorized') {
+                options += `${optionIndex} - ${folder.name}\n`;
+                optionIndex++;
+            }
+        });
+        
+        const choice = prompt(options);
+        if (choice === null) return; // Cancelado
+        
+        const choiceIndex = parseInt(choice);
+        let targetFolderId;
+        
+        if (choiceIndex === 0) {
+            targetFolderId = 'uncategorized';
+        } else {
+            // Encontrar a pasta correspondente à escolha (excluindo uncategorized)
+            const nonUncategorizedFolders = folders.filter(f => f.id !== 'uncategorized');
+            if (choiceIndex > 0 && choiceIndex <= nonUncategorizedFolders.length) {
+                targetFolderId = nonUncategorizedFolders[choiceIndex - 1].id;
+            } else {
+                alert('Opção inválida');
+                return;
+            }
+        }
+        
+        await moveRecordingToFolder(recordingId, targetFolderId);
+        await updateRecordingsList();
+        
+        console.log('Gravação movida com sucesso');
+    } catch (error) {
+        console.error('Erro ao mover gravação:', error);
+        alert('Erro ao mover gravação. Tente novamente.');
+    }
 }
 
 // Função para formatar tamanho de arquivo
@@ -926,8 +1276,13 @@ saveBtn.addEventListener('click', saveCurrentRecording);
 // Event listener para seeking na forma de onda (já adicionado, mas verificando se está funcionando)
 waveformCanvas.addEventListener('click', handleWaveformClick);
 
-// Event listener para botão de histórico/gravações salvas
+// Event listeners para sistema de pastas
 historyBtn.addEventListener('click', showRecordingsPane);
+createFolderBtn.addEventListener('click', showCreateFolderDialog);
+folderSelector.addEventListener('change', (e) => {
+    currentFolder = e.target.value;
+    updateRecordingsList();
+});
 
 // Função para salvar gravação atual manualmente
 async function saveCurrentRecording() {
@@ -1089,6 +1444,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
         await initializeDB();
         console.log('Sistema de persistência inicializado');
+        
+        // Carregar pastas se já estiver no painel de gravações
+        if (!recordingsPane.classList.contains('hidden')) {
+            await updateFolderSelector();
+        }
     } catch (error) {
         console.error('Erro ao inicializar sistema de persistência:', error);
     }
