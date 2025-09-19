@@ -21,11 +21,20 @@ const progressBar = document.getElementById('progressBar');
 const currentTime = document.getElementById('currentTime');
 const totalTime = document.getElementById('totalTime');
 const downloadBtn = document.getElementById('downloadBtn');
+const saveBtn = document.getElementById('saveBtn');
 
 // Elementos para visualização de forma de onda
 const waveformCanvas = document.getElementById('waveformCanvas');
 const waveformProgress = document.getElementById('waveformProgress');
 const waveformCtx = waveformCanvas.getContext('2d');
+
+// Elementos para persistência (interface)
+const historyBtn = document.getElementById('historyBtn');
+const recordingsPane = document.getElementById('recordingsPane');
+const recordingsList = document.getElementById('recordingsList');
+const recordingsEmptyState = document.getElementById('recordingsEmptyState');
+const recordingsCount = document.getElementById('recordingsCount');
+const recordingsSize = document.getElementById('recordingsSize');
 
 let isMainRecording = false;
 let isPromptRecording = false;
@@ -48,6 +57,12 @@ let waveformAudioContext = null;
 let waveformData = null;
 let canvasWidth = 400;
 let canvasHeight = 48;
+
+// Variáveis para persistência local
+let dbConnection = null;
+const DB_NAME = 'TalkerAppDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'recordings';
 
 // Variáveis para timer de gravação
 let recordingStartTime;
@@ -92,7 +107,7 @@ function setupMediaRecorderEvents(recorder) {
 }
 
 // Função chamada quando a gravação é finalizada
-function handleRecordingComplete(audioURL, audioBlob) {
+async function handleRecordingComplete(audioURL, audioBlob) {
     console.log('=== GRAVAÇÃO COMPLETA ===');
     console.log('Tamanho do arquivo:', audioBlob.size, 'bytes');
     console.log('Tipo MIME:', audioBlob.type);
@@ -101,6 +116,8 @@ function handleRecordingComplete(audioURL, audioBlob) {
     // Criar elemento de áudio e mostrar controles
     createAudioElement(audioURL, audioBlob);
     showAudioControls();
+    
+    // Não salvar automaticamente aqui - será feito quando os metadados carregarem
 }
 
 // Função para criar elemento de áudio
@@ -135,6 +152,24 @@ function createAudioElement(audioURL, audioBlob) {
     // Armazenar referência do blob e URL para download
     audioElement._audioBlob = audioBlob;
     audioElement._audioURL = audioURL;
+    
+    // Salvar automaticamente quando metadados estiverem carregados
+    audioElement.addEventListener('loadedmetadata', async () => {
+        try {
+            const duration = audioElement.duration || 0;
+            const recordingId = await saveRecording(audioBlob, duration);
+            console.log('Gravação salva automaticamente com ID:', recordingId);
+            
+            // Marcar elemento como já salvo para evitar duplicação
+            audioElement._savedRecordingId = recordingId;
+            
+            // Atualizar lista de gravações se estiver visível
+            updateRecordingsList();
+        } catch (error) {
+            console.error('Erro ao salvar gravação automaticamente:', error);
+            // Não bloquear o fluxo normal se houver erro na persistência
+        }
+    });
 }
 
 // Função para mostrar controles de áudio
@@ -436,6 +471,345 @@ function adjustCanvasSize() {
     console.log(`Canvas ajustado: ${canvasWidth}x${canvasHeight} (CSS: ${cssWidth}x${cssHeight})`);
 }
 
+// FUNÇÕES PARA PERSISTÊNCIA LOCAL (IndexedDB)
+
+// Função para inicializar IndexedDB
+async function initializeDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        request.onerror = () => {
+            console.error('Erro ao abrir IndexedDB:', request.error);
+            reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+            dbConnection = request.result;
+            console.log('IndexedDB inicializado com sucesso');
+            resolve(dbConnection);
+        };
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            console.log('Criando estrutura do banco de dados...');
+            
+            // Criar object store para gravações
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                const store = db.createObjectStore(STORE_NAME, { 
+                    keyPath: 'id', 
+                    autoIncrement: true 
+                });
+                
+                // Índices para busca
+                store.createIndex('timestamp', 'timestamp', { unique: false });
+                store.createIndex('title', 'title', { unique: false });
+                store.createIndex('duration', 'duration', { unique: false });
+                
+                console.log('Object store "recordings" criado');
+            }
+        };
+    });
+}
+
+// Função para salvar gravação no IndexedDB
+async function saveRecording(audioBlob, duration, title = null) {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    return new Promise((resolve, reject) => {
+        const transaction = dbConnection.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        
+        // Criar objeto de gravação
+        const recording = {
+            title: title || `Gravação ${new Date().toLocaleString('pt-BR')}`,
+            timestamp: Date.now(),
+            duration: duration,
+            audioBlob: audioBlob,
+            size: audioBlob.size,
+            type: audioBlob.type
+        };
+        
+        const request = store.add(recording);
+        
+        request.onerror = () => {
+            console.error('Erro ao salvar gravação:', request.error);
+            reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+            console.log('Gravação salva com ID:', request.result);
+            resolve(request.result);
+        };
+        
+        transaction.oncomplete = () => {
+            console.log('Transação de salvamento concluída');
+        };
+        
+        transaction.onerror = () => {
+            console.error('Erro na transação de salvamento:', transaction.error);
+            reject(transaction.error);
+        };
+    });
+}
+
+// Função para carregar todas as gravações
+async function loadAllRecordings() {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    return new Promise((resolve, reject) => {
+        const transaction = dbConnection.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.getAll();
+        
+        request.onerror = () => {
+            console.error('Erro ao carregar gravações:', request.error);
+            reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+            const recordings = request.result.sort((a, b) => b.timestamp - a.timestamp);
+            console.log('Gravações carregadas:', recordings.length);
+            resolve(recordings);
+        };
+    });
+}
+
+// Função para carregar gravação específica por ID
+async function loadRecording(id) {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    return new Promise((resolve, reject) => {
+        const transaction = dbConnection.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(id);
+        
+        request.onerror = () => {
+            console.error('Erro ao carregar gravação:', request.error);
+            reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+            resolve(request.result);
+        };
+    });
+}
+
+// Função para excluir gravação
+async function deleteRecording(id) {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    return new Promise((resolve, reject) => {
+        const transaction = dbConnection.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(id);
+        
+        request.onerror = () => {
+            console.error('Erro ao excluir gravação:', request.error);
+            reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+            console.log('Gravação excluída com sucesso');
+            resolve();
+        };
+    });
+}
+
+// Função para obter estatísticas das gravações
+async function getRecordingsStats() {
+    const recordings = await loadAllRecordings();
+    const totalSize = recordings.reduce((acc, rec) => acc + rec.size, 0);
+    const totalDuration = recordings.reduce((acc, rec) => acc + rec.duration, 0);
+    
+    return {
+        count: recordings.length,
+        totalSize: totalSize,
+        totalDuration: totalDuration,
+        averageDuration: recordings.length > 0 ? totalDuration / recordings.length : 0
+    };
+}
+
+// FUNÇÕES PARA INTERFACE DE GRAVAÇÕES
+
+// Função para atualizar lista de gravações na interface
+async function updateRecordingsList() {
+    // Garantir que DB está inicializado
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    try {
+        const recordings = await loadAllRecordings();
+        const stats = await getRecordingsStats();
+        
+        // Atualizar estatísticas no cabeçalho
+        recordingsCount.textContent = stats.count;
+        recordingsSize.textContent = formatFileSize(stats.totalSize);
+        
+        // Limpar lista atual
+        recordingsList.innerHTML = '';
+        
+        // Mostrar/esconder estado vazio
+        if (recordings.length === 0) {
+            recordingsEmptyState.classList.remove('hidden');
+            return;
+        } else {
+            recordingsEmptyState.classList.add('hidden');
+        }
+        
+        // Renderizar cada gravação
+        recordings.forEach(recording => {
+            const recordingElement = createRecordingElement(recording);
+            recordingsList.appendChild(recordingElement);
+        });
+        
+        console.log('Lista de gravações atualizada');
+    } catch (error) {
+        console.error('Erro ao atualizar lista de gravações:', error);
+    }
+}
+
+// Função para criar elemento HTML de uma gravação
+function createRecordingElement(recording) {
+    const div = document.createElement('div');
+    div.className = 'bg-gray-800 rounded-lg p-3 border border-gray-700 hover:bg-gray-750 transition-colors';
+    div.dataset.recordingId = recording.id;
+    
+    div.innerHTML = `
+        <div class="flex items-center justify-between">
+            <div class="flex-grow">
+                <div class="flex items-center space-x-2">
+                    <h3 class="text-sm font-medium text-white truncate max-w-[200px]">${recording.title}</h3>
+                    <span class="text-xs text-gray-500">${formatFileSize(recording.size)}</span>
+                </div>
+                <div class="flex items-center space-x-2 text-xs text-gray-400 mt-1">
+                    <span>${formatAudioTime(recording.duration)}</span>
+                    <span>•</span>
+                    <span>${new Date(recording.timestamp).toLocaleDateString('pt-BR')}</span>
+                    <span>${new Date(recording.timestamp).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-1 ml-2">
+                <button class="play-recording-btn w-8 h-8 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center text-white transition-colors" title="Reproduzir">
+                    <svg class="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </button>
+                <button class="download-recording-btn w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white hover:border-gray-400 transition-colors" title="Baixar">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </button>
+                <button class="delete-recording-btn w-8 h-8 rounded-full border border-red-600 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500 transition-colors" title="Excluir">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Event listeners para os botões
+    const playBtn = div.querySelector('.play-recording-btn');
+    const downloadRecordingBtn = div.querySelector('.download-recording-btn');
+    const deleteBtn = div.querySelector('.delete-recording-btn');
+    
+    playBtn.addEventListener('click', () => playRecording(recording.id));
+    downloadRecordingBtn.addEventListener('click', () => downloadRecording(recording));
+    deleteBtn.addEventListener('click', () => deleteRecordingWithConfirmation(recording.id));
+    
+    return div;
+}
+
+// Função para reproduzir gravação salva
+async function playRecording(recordingId) {
+    try {
+        const recording = await loadRecording(recordingId);
+        if (!recording) {
+            console.error('Gravação não encontrada');
+            return;
+        }
+        
+        // Criar URL temporária para reprodução
+        const audioURL = URL.createObjectURL(recording.audioBlob);
+        
+        // Limpar reprodução atual e criar nova
+        hideAudioControls();
+        createAudioElement(audioURL, recording.audioBlob);
+        showAudioControls();
+        
+        console.log('Reproduzindo gravação salva:', recording.title);
+    } catch (error) {
+        console.error('Erro ao reproduzir gravação salva:', error);
+    }
+}
+
+// Função para baixar gravação salva
+function downloadRecording(recording) {
+    const url = URL.createObjectURL(recording.audioBlob);
+    const a = document.createElement('a');
+    const filename = recording.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    
+    a.href = url;
+    a.download = `${filename}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    // Revogar URL após download
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    
+    console.log('Download da gravação salva iniciado:', recording.title);
+}
+
+// Função para excluir gravação com confirmação
+async function deleteRecordingWithConfirmation(recordingId) {
+    const recording = await loadRecording(recordingId);
+    if (!recording) return;
+    
+    if (confirm(`Tem certeza que deseja excluir "${recording.title}"?`)) {
+        try {
+            await deleteRecording(recordingId);
+            await updateRecordingsList();
+            console.log('Gravação excluída:', recording.title);
+        } catch (error) {
+            console.error('Erro ao excluir gravação:', error);
+            alert('Erro ao excluir gravação. Tente novamente.');
+        }
+    }
+}
+
+// Função para mostrar painel de gravações
+function showRecordingsPane() {
+    // Ocultar todas as tabs
+    document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
+    
+    // Mostrar painel de gravações
+    recordingsPane.classList.remove('hidden');
+    
+    // Atualizar lista
+    updateRecordingsList();
+}
+
+// Função para formatar tamanho de arquivo
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 // Função para limpar dados de gravação anterior
 function clearPreviousRecording() {
     audioChunks = [];
@@ -547,9 +921,53 @@ function stopVolumeAnalysis() {
 // Event listeners para controles de áudio
 playPauseBtn.addEventListener('click', toggleAudioPlayback);
 downloadBtn.addEventListener('click', downloadAudio);
+saveBtn.addEventListener('click', saveCurrentRecording);
 
 // Event listener para seeking na forma de onda (já adicionado, mas verificando se está funcionando)
 waveformCanvas.addEventListener('click', handleWaveformClick);
+
+// Event listener para botão de histórico/gravações salvas
+historyBtn.addEventListener('click', showRecordingsPane);
+
+// Função para salvar gravação atual manualmente
+async function saveCurrentRecording() {
+    if (!audioElement || !audioElement._audioBlob) {
+        console.log('Nenhuma gravação atual para salvar');
+        return;
+    }
+    
+    // Verificar se já foi salva automaticamente
+    if (audioElement._savedRecordingId) {
+        console.log('Gravação já foi salva automaticamente com ID:', audioElement._savedRecordingId);
+        // Ainda permitir renomear se usuário quiser
+        const renameResult = confirm('Esta gravação já foi salva automaticamente. Deseja salvar uma cópia com nome personalizado?');
+        if (!renameResult) return;
+    }
+    
+    try {
+        const duration = audioElement.duration || 0;
+        const title = prompt('Nome da gravação:') || `Gravação ${new Date().toLocaleString('pt-BR')}`;
+        
+        const recordingId = await saveRecording(audioElement._audioBlob, duration, title);
+        console.log('Gravação salva manualmente com ID:', recordingId);
+        
+        // Feedback visual
+        saveBtn.style.color = '#10b981';
+        saveBtn.style.borderColor = '#10b981';
+        setTimeout(() => {
+            saveBtn.style.color = '';
+            saveBtn.style.borderColor = '';
+        }, 1000);
+        
+        // Atualizar lista se estiver visível
+        if (!recordingsPane.classList.contains('hidden')) {
+            updateRecordingsList();
+        }
+    } catch (error) {
+        console.error('Erro ao salvar gravação manualmente:', error);
+        alert('Erro ao salvar gravação. Tente novamente.');
+    }
+}
 
 // Event listener para o botão do assistente
 assistantBtn.addEventListener('click', () => {
@@ -661,6 +1079,20 @@ function updateTabEventListeners() {
 }
 
 updateTabEventListeners();
+
+// Inicializar sistema quando DOM estiver carregado
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('TalkerApp carregado');
+    updateTabEventListeners();
+    
+    // Inicializar IndexedDB
+    try {
+        await initializeDB();
+        console.log('Sistema de persistência inicializado');
+    } catch (error) {
+        console.error('Erro ao inicializar sistema de persistência:', error);
+    }
+});
 
 function createNewTab() {
     promptStatus.classList.add('hidden');

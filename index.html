@@ -55,9 +55,9 @@
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                     </button>
                     
-                    <!-- Botão Histórico -->
-                    <button id="historyBtn" title="Histórico" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-purple-500/20 transition-colors">
-                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <!-- Botão Histórico / Gravações Salvas -->
+                    <button id="historyBtn" title="Gravações Salvas" class="w-[50px] h-[50px] rounded-full border-2 border-[#c2c0b7] flex items-center justify-center text-[#c2c0b7] hover:bg-purple-500/20 transition-colors">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                     </button>
                 </div>
             </div>
@@ -117,6 +117,11 @@
                             </div>
                         </div>
                         <div class="flex items-center space-x-2">
+                            <button id="saveBtn" title="Salvar Gravação" class="w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-green-400 hover:border-green-400 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                            </button>
                             <button id="downloadBtn" title="Baixar Áudio" class="w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white hover:border-gray-400 transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -127,6 +132,28 @@
                 </div>
 
                 <main id="tabs-content" class="absolute inset-0 p-4" style="top: 0;">
+                    <!-- Nova tab para Gravações Salvas -->
+                    <div id="recordingsPane" class="tab-pane hidden">
+                        <div class="flex items-center justify-between mb-4">
+                            <h1 class="text-xl font-bold">Gravações Salvas</h1>
+                            <div class="text-xs text-gray-500">
+                                <span id="recordingsCount">0</span> gravações • 
+                                <span id="recordingsSize">0 MB</span>
+                            </div>
+                        </div>
+                        
+                        <div id="recordingsEmptyState" class="text-center text-gray-500 py-8 hidden">
+                            <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                            </svg>
+                            <p class="text-sm">Nenhuma gravação salva ainda</p>
+                            <p class="text-xs mt-1">As gravações são salvas automaticamente após cada sessão</p>
+                        </div>
+                        
+                        <div id="recordingsList" class="space-y-2 max-h-80 overflow-y-auto">
+                            <!-- Gravações serão carregadas dinamicamente aqui -->
+                        </div>
+                    </div>
                     <div class="tab-pane">
                         <h1 class="text-xl font-bold mb-4">Sexta-feira, 5 de setembro - Preocupações e planejamentos</h1>
                         <div class="text-sm leading-relaxed space-y-3">
@@ -170,6 +197,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=2.4.0" defer></script>
+    <script src="script.js?v=2.8.0" defer></script>
 </body>
 </html>
