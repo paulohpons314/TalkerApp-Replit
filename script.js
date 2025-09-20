@@ -952,6 +952,11 @@ function createRecordingElement(recording) {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
                 </button>
+                <button class="transcribe-recording-btn w-8 h-8 rounded-full border border-purple-600 flex items-center justify-center text-purple-400 hover:text-purple-300 hover:border-purple-500 transition-colors" title="Transcrever e Analisar">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </button>
                 <button class="delete-recording-btn w-8 h-8 rounded-full border border-red-600 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500 transition-colors" title="Excluir">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -965,11 +970,13 @@ function createRecordingElement(recording) {
     const moveBtn = div.querySelector('.move-recording-btn');
     const playBtn = div.querySelector('.play-recording-btn');
     const downloadRecordingBtn = div.querySelector('.download-recording-btn');
+    const transcribeBtn = div.querySelector('.transcribe-recording-btn');
     const deleteBtn = div.querySelector('.delete-recording-btn');
     
     moveBtn.addEventListener('click', () => showMoveRecordingDialog(recording.id));
     playBtn.addEventListener('click', () => playRecording(recording.id));
     downloadRecordingBtn.addEventListener('click', () => downloadRecording(recording));
+    transcribeBtn.addEventListener('click', () => transcribeRecording(recording.id));
     deleteBtn.addEventListener('click', () => deleteRecordingWithConfirmation(recording.id));
     
     return div;
@@ -1516,3 +1523,373 @@ newTransformationBtn.addEventListener('click', () => {
         }, 1000);
     }
 });
+
+// ===========================================
+// SISTEMA DE TRANSCRIÇÃO E ANÁLISE OPENAI
+// ===========================================
+
+// Função para obter chave OpenAI de forma segura
+async function getOpenAIKey() {
+    // Tentar diferentes métodos para obter a chave
+    let apiKey = null;
+    
+    // Método 1: Variável global injetada
+    if (window.ENV?.OPENAI_API_KEY && window.ENV.OPENAI_API_KEY !== 'PLACEHOLDER_OPENAI_KEY') {
+        apiKey = window.ENV.OPENAI_API_KEY;
+    }
+    
+    // Método 2: Tentar via fetch para endpoint local (se disponível)
+    if (!apiKey) {
+        try {
+            const response = await fetch('/api/env');
+            if (response.ok) {
+                const data = await response.json();
+                apiKey = data.OPENAI_API_KEY;
+            }
+        } catch (e) {
+            // Endpoint não disponível, continuar
+        }
+    }
+    
+    // Método 3: Prompt do usuário como fallback
+    if (!apiKey) {
+        apiKey = prompt('Para usar transcrição, insira sua chave OpenAI:\n(Será usada apenas nesta sessão)');
+        if (apiKey) {
+            // Armazenar temporariamente na sessão
+            window.ENV = window.ENV || {};
+            window.ENV.OPENAI_API_KEY = apiKey;
+        }
+    }
+    
+    return apiKey;
+}
+
+// Função para transcrever áudio usando Whisper API
+async function transcribeAudio(audioBlob) {
+    const OPENAI_API_KEY = await getOpenAIKey();
+    
+    if (!OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY não configurada');
+    }
+    
+    try {
+        // Criar FormData para envio do áudio
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'audio.webm');
+        formData.append('model', 'whisper-1');
+        formData.append('language', 'pt'); // Português brasileiro
+        formData.append('response_format', 'json');
+        
+        // Chamada para API Whisper
+        const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Erro API Whisper: ${errorData.error?.message || response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        return {
+            text: result.text,
+            duration: result.duration || 0,
+            language: result.language || 'pt'
+        };
+        
+    } catch (error) {
+        console.error('Erro na transcrição:', error);
+        throw error;
+    }
+}
+
+// Função para análise de sentimentos usando GPT-4o
+// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+async function analyzeSentiment(text) {
+    const OPENAI_API_KEY = await getOpenAIKey();
+    
+    if (!OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY não configurada');
+    }
+    
+    try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o', // Usando GPT-4o para melhor interpretação abstrata como solicitado
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'Você é um especialista em análise de sentimentos e padrões emocionais. Analise o texto e forneça insights detalhados sobre o estado emocional, temas principais e padrões de pensamento. Responda em JSON com: {"sentimento": "positivo/neutro/negativo", "confianca": 0.95, "emocoes": ["alegria", "confiança"], "temas": ["trabalho", "relacionamentos"], "insights": "Análise detalhada..."}'
+                    },
+                    {
+                        role: 'user',
+                        content: text
+                    }
+                ],
+                response_format: { type: "json_object" }
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Erro API GPT: ${errorData.error?.message || response.statusText}`);
+        }
+        
+        const result = await response.json();
+        const analysis = JSON.parse(result.choices[0].message.content);
+        
+        return analysis;
+        
+    } catch (error) {
+        console.error('Erro na análise:', error);
+        throw error;
+    }
+}
+
+// Função para processar gravação: transcrever + analisar
+async function processRecording(audioBlob) {
+    try {
+        // Mostrar loading
+        showProcessingStatus('Transcrevendo áudio...');
+        
+        // 1. Transcrever áudio
+        const transcription = await transcribeAudio(audioBlob);
+        
+        // Atualizar status
+        showProcessingStatus('Analisando sentimentos...');
+        
+        // 2. Analisar sentimentos
+        const analysis = await analyzeSentiment(transcription.text);
+        
+        // Limpar status
+        hideProcessingStatus();
+        
+        // 3. Retornar resultado completo
+        return {
+            transcription: transcription,
+            analysis: analysis,
+            timestamp: Date.now()
+        };
+        
+    } catch (error) {
+        hideProcessingStatus();
+        throw error;
+    }
+}
+
+// Função para mostrar status de processamento
+function showProcessingStatus(message) {
+    // Criar ou atualizar elemento de status
+    let statusElement = document.getElementById('processing-status');
+    if (!statusElement) {
+        statusElement = document.createElement('div');
+        statusElement.id = 'processing-status';
+        statusElement.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        document.body.appendChild(statusElement);
+    }
+    
+    statusElement.innerHTML = `
+        <div class="flex items-center space-x-2">
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            <span>${message}</span>
+        </div>
+    `;
+    statusElement.style.display = 'block';
+}
+
+function hideProcessingStatus() {
+    const statusElement = document.getElementById('processing-status');
+    if (statusElement) {
+        statusElement.style.display = 'none';
+    }
+}
+
+// Função para transcrever gravação específica e mostrar resultados
+async function transcribeRecording(recordingId) {
+    try {
+        // Carregar gravação do IndexedDB
+        const recording = await loadRecording(recordingId);
+        if (!recording) {
+            alert('Gravação não encontrada');
+            return;
+        }
+        
+        // Processar gravação
+        const result = await processRecording(recording.audioBlob);
+        
+        // Mostrar resultados na interface
+        showTranscriptionResults(recording, result);
+        
+    } catch (error) {
+        console.error('Erro ao transcrever gravação:', error);
+        alert(`Erro ao transcrever: ${error.message}`);
+    }
+}
+
+// Função para mostrar resultados da transcrição em modal
+function showTranscriptionResults(recording, result) {
+    // Criar modal com resultados
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    
+    modal.innerHTML = `
+        <div class="bg-gray-800 rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white">Processamento: ${recording.title}</h2>
+                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Abas -->
+            <div class="border-b border-gray-700 mb-4">
+                <nav class="-mb-px flex space-x-8">
+                    <button class="transcription-tab border-b-2 border-green-500 py-2 px-1 text-green-400 font-medium text-sm" onclick="showTranscriptionTab(0)">
+                        📝 Transcrição
+                    </button>
+                    <button class="transcription-tab border-b-2 border-transparent py-2 px-1 text-gray-400 font-medium text-sm hover:text-gray-300" onclick="showTranscriptionTab(1)">
+                        🧠 Análise de Sentimentos
+                    </button>
+                </nav>
+            </div>
+            
+            <!-- Conteúdo das Abas -->
+            <div class="transcription-panes">
+                <!-- Aba 1: Transcrição -->
+                <div class="transcription-pane">
+                    <div class="bg-gray-900 rounded p-4 mb-4">
+                        <h3 class="text-sm font-medium text-gray-400 mb-2">Texto Transcrito</h3>
+                        <p class="text-white leading-relaxed">${result.transcription.text}</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div class="bg-gray-900 rounded p-3">
+                            <div class="text-gray-400">Duração</div>
+                            <div class="text-white font-medium">${Math.round(result.transcription.duration || 0)}s</div>
+                        </div>
+                        <div class="bg-gray-900 rounded p-3">
+                            <div class="text-gray-400">Idioma</div>
+                            <div class="text-white font-medium">${result.transcription.language || 'pt'}</div>
+                        </div>
+                        <div class="bg-gray-900 rounded p-3">
+                            <div class="text-gray-400">Palavras</div>
+                            <div class="text-white font-medium">${result.transcription.text.split(' ').length}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Aba 2: Análise -->
+                <div class="transcription-pane hidden">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-gray-900 rounded p-4">
+                            <h3 class="text-sm font-medium text-gray-400 mb-2">Sentimento Geral</h3>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-2xl">${getSentimentEmoji(result.analysis.sentimento)}</span>
+                                <span class="text-white font-medium capitalize">${result.analysis.sentimento}</span>
+                                <span class="text-gray-400">(${Math.round(result.analysis.confianca * 100)}%)</span>
+                            </div>
+                        </div>
+                        <div class="bg-gray-900 rounded p-4">
+                            <h3 class="text-sm font-medium text-gray-400 mb-2">Emoções Detectadas</h3>
+                            <div class="flex flex-wrap gap-2">
+                                ${result.analysis.emocoes?.map(emocao => 
+                                    `<span class="bg-blue-600 text-blue-100 px-2 py-1 rounded text-xs">${emocao}</span>`
+                                ).join('') || '<span class="text-gray-500">Nenhuma detectada</span>'}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-900 rounded p-4 mb-4">
+                        <h3 class="text-sm font-medium text-gray-400 mb-2">Temas Principais</h3>
+                        <div class="flex flex-wrap gap-2">
+                            ${result.analysis.temas?.map(tema => 
+                                `<span class="bg-purple-600 text-purple-100 px-2 py-1 rounded text-xs">${tema}</span>`
+                            ).join('') || '<span class="text-gray-500">Nenhum identificado</span>'}
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-900 rounded p-4">
+                        <h3 class="text-sm font-medium text-gray-400 mb-2">Insights Detalhados</h3>
+                        <p class="text-white leading-relaxed">${result.analysis.insights || 'Nenhum insight disponível'}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botões de Ação -->
+            <div class="flex justify-end space-x-2 mt-6">
+                <button onclick="copyTranscription('${result.transcription.text.replace(/'/g, "\\'")}'))" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    Copiar Transcrição
+                </button>
+                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// Função para alternar entre abas da transcrição
+function showTranscriptionTab(index) {
+    const tabs = document.querySelectorAll('.transcription-tab');
+    const panes = document.querySelectorAll('.transcription-pane');
+    
+    tabs.forEach((tab, i) => {
+        if (i === index) {
+            tab.classList.remove('border-transparent', 'text-gray-400');
+            tab.classList.add('border-green-500', 'text-green-400');
+        } else {
+            tab.classList.remove('border-green-500', 'text-green-400');
+            tab.classList.add('border-transparent', 'text-gray-400');
+        }
+    });
+    
+    panes.forEach((pane, i) => {
+        if (i === index) {
+            pane.classList.remove('hidden');
+        } else {
+            pane.classList.add('hidden');
+        }
+    });
+}
+
+// Função auxiliar para emoji de sentimento
+function getSentimentEmoji(sentimento) {
+    switch (sentimento?.toLowerCase()) {
+        case 'positivo': return '😊';
+        case 'negativo': return '😔';
+        case 'neutro': return '😐';
+        default: return '🤔';
+    }
+}
+
+// Função para copiar transcrição
+function copyTranscription(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        // Mostrar feedback visual
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = '✓ Copiado!';
+        button.classList.add('bg-green-600');
+        
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('bg-green-600');
+        }, 2000);
+    }).catch(err => {
+        console.error('Erro ao copiar:', err);
+        alert('Erro ao copiar texto');
+    });
+}

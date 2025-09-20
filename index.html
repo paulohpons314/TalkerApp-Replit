@@ -223,6 +223,13 @@
         </div>
     </div>
 
-    <script src="script.js?v=3.2.0" defer></script>
+    <!-- Injetar variáveis de ambiente para cliente -->
+    <script>
+        // Configurar variáveis de ambiente para o cliente
+        window.ENV = {
+            OPENAI_API_KEY: 'PLACEHOLDER_OPENAI_KEY' // Será substituído pelo servidor
+        };
+    </script>
+    <script src="script.js?v=3.4.0" defer></script>
 </body>
 </html>
