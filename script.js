@@ -590,7 +590,8 @@ async function saveRecording(audioBlob, duration, title = null) {
             audioBlob: audioBlob,
             size: audioBlob.size,
             type: audioBlob.type,
-            folder: targetFolder
+            folder: targetFolder,
+            transformations: [] // Array para múltiplas versões/transformações
         };
         
         const request = store.add(recording);
@@ -957,6 +958,13 @@ function createRecordingElement(recording) {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
                 </button>
+                ${recording.transformations && recording.transformations.length > 0 ? 
+                    `<button class="view-transformations-btn w-8 h-8 rounded-full border border-green-600 flex items-center justify-center text-green-400 hover:text-green-300 hover:border-green-500 transition-colors" title="Ver Transformações (${recording.transformations.length})">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2v0a2 2 0 01-2-2v-5H8.5a.5.5 0 01-.5-.5z"></path>
+                        </svg>
+                    </button>` : ''
+                }
                 <button class="delete-recording-btn w-8 h-8 rounded-full border border-red-600 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500 transition-colors" title="Excluir">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -971,12 +979,16 @@ function createRecordingElement(recording) {
     const playBtn = div.querySelector('.play-recording-btn');
     const downloadRecordingBtn = div.querySelector('.download-recording-btn');
     const transcribeBtn = div.querySelector('.transcribe-recording-btn');
+    const viewTransformationsBtn = div.querySelector('.view-transformations-btn');
     const deleteBtn = div.querySelector('.delete-recording-btn');
     
     moveBtn.addEventListener('click', () => showMoveRecordingDialog(recording.id));
     playBtn.addEventListener('click', () => playRecording(recording.id));
     downloadRecordingBtn.addEventListener('click', () => downloadRecording(recording));
     transcribeBtn.addEventListener('click', () => transcribeRecording(recording.id));
+    if (viewTransformationsBtn) {
+        viewTransformationsBtn.addEventListener('click', () => showTransformationHistory(recording.id));
+    }
     deleteBtn.addEventListener('click', () => deleteRecordingWithConfirmation(recording.id));
     
     return div;
@@ -1656,20 +1668,34 @@ async function analyzeSentiment(text) {
     }
 }
 
-// Função para processar gravação: transcrever + analisar
-async function processRecording(audioBlob) {
+// Função para processar gravação: transcrever + analisar (com Mock + Real)
+async function processRecording(audioBlob, useRealAPI = false) {
     try {
         // Mostrar loading
         showProcessingStatus('Transcrevendo áudio...');
         
-        // 1. Transcrever áudio
-        const transcription = await transcribeAudio(audioBlob);
+        let transcription, analysis;
         
-        // Atualizar status
-        showProcessingStatus('Analisando sentimentos...');
-        
-        // 2. Analisar sentimentos
-        const analysis = await analyzeSentiment(transcription.text);
+        if (useRealAPI) {
+            // 1. Usar APIs reais da OpenAI
+            transcription = await transcribeAudio(audioBlob);
+            showProcessingStatus('Analisando sentimentos...');
+            analysis = await analyzeSentiment(transcription.text);
+        } else {
+            // 1. Mock inteligente - simular processamento real
+            await sleep(2000); // Simular tempo de transcrição
+            
+            transcription = {
+                text: generateMockTranscription(),
+                duration: Math.round(audioBlob.size / 8000), // Estimativa baseada no tamanho
+                language: 'pt'
+            };
+            
+            showProcessingStatus('Analisando sentimentos...');
+            await sleep(1500); // Simular tempo de análise
+            
+            analysis = generateMockAnalysis(transcription.text);
+        }
         
         // Limpar status
         hideProcessingStatus();
@@ -1678,13 +1704,121 @@ async function processRecording(audioBlob) {
         return {
             transcription: transcription,
             analysis: analysis,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            type: useRealAPI ? 'real' : 'mock'
         };
         
     } catch (error) {
         hideProcessingStatus();
         throw error;
     }
+}
+
+// Função auxiliar para sleep
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Mock inteligente de transcrição - simula pensamento cru
+function generateMockTranscription() {
+    const mockTexts = [
+        "Estou pensando sobre o projeto que estamos desenvolvendo e acho que está tomando uma forma muito interessante. A ideia de transformar a fala em algo maleável, como um processador de pensamento, realmente faz sentido. Às vezes quando falo, organizo melhor as ideias do que quando escrevo.",
+        
+        "Hoje foi um dia intenso no trabalho. Muitas reuniões, mas sinto que estamos progredindo. Há uma sensação de que estamos construindo algo importante. Preciso lembrar de focar mais no que realmente importa e menos nas pequenas distrações do dia a dia.",
+        
+        "Tive uma conversa interessante com um amigo sobre tecnologia e futuro. Ele mencionou como a inteligência artificial está mudando tudo. Fiquei pensando sobre como podemos usar essas ferramentas de forma mais humana, mais próxima do nosso jeito natural de pensar e processar informações.",
+        
+        "Estou refletindo sobre meus objetivos para os próximos meses. Quero me dedicar mais a projetos que tenham significado real. Cansei de trabalhar em coisas que não agregam valor genuíno. A vida é muito curta para desperdiçar tempo com projetos vazios.",
+        
+        "Observando o comportamento das pessoas hoje, notei como estamos todos sempre conectados mas nem sempre presentes. Será que a tecnologia está nos aproximando ou nos afastando uns dos outros? É uma questão complexa que merece mais reflexão."
+    ];
+    
+    return mockTexts[Math.floor(Math.random() * mockTexts.length)];
+}
+
+// Mock inteligente de análise - demonstra insights profundos
+function generateMockAnalysis(text) {
+    // Analisar o texto mock para gerar análise coerente
+    const sentimentWords = {
+        positivo: ['interessante', 'progredindo', 'importante', 'significado', 'valor'],
+        negativo: ['intenso', 'distrações', 'cansei', 'desperdiçar', 'vazios'],
+        neutro: ['pensando', 'reuniões', 'observando', 'reflexão', 'questão']
+    };
+    
+    let sentiment = 'neutro';
+    let confidence = 0.7 + Math.random() * 0.25; // 70-95%
+    
+    // Análise simples baseada em palavras-chave
+    const lowerText = text.toLowerCase();
+    let positiveCount = 0, negativeCount = 0;
+    
+    sentimentWords.positivo.forEach(word => {
+        if (lowerText.includes(word)) positiveCount++;
+    });
+    
+    sentimentWords.negativo.forEach(word => {
+        if (lowerText.includes(word)) negativeCount++;
+    });
+    
+    if (positiveCount > negativeCount) {
+        sentiment = 'positivo';
+    } else if (negativeCount > positiveCount) {
+        sentiment = 'negativo';
+    }
+    
+    // Emoções baseadas no sentimento
+    const emotionsBysentiment = {
+        positivo: ['otimismo', 'curiosidade', 'satisfação', 'esperança', 'confiança'],
+        negativo: ['preocupação', 'frustração', 'cansaço', 'melancolia', 'ansiedade'],
+        neutro: ['reflexão', 'contemplação', 'análise', 'observação', 'ponderação']
+    };
+    
+    const emotions = emotionsBysentiment[sentiment].slice(0, 2 + Math.floor(Math.random() * 2));
+    
+    // Temas baseados no conteúdo
+    const themes = [];
+    if (lowerText.includes('trabalho') || lowerText.includes('projeto') || lowerText.includes('reuniões')) {
+        themes.push('trabalho');
+    }
+    if (lowerText.includes('tecnologia') || lowerText.includes('inteligência artificial') || lowerText.includes('ferramentas')) {
+        themes.push('tecnologia');
+    }
+    if (lowerText.includes('pessoas') || lowerText.includes('amigo') || lowerText.includes('conversa')) {
+        themes.push('relacionamentos');
+    }
+    if (lowerText.includes('futuro') || lowerText.includes('objetivos') || lowerText.includes('próximos')) {
+        themes.push('planejamento');
+    }
+    if (lowerText.includes('reflexão') || lowerText.includes('pensando') || lowerText.includes('observando')) {
+        themes.push('autoconhecimento');
+    }
+    
+    // Insights personalizados baseados no conteúdo
+    let insights = "Esta reflexão demonstra um processo de pensamento estruturado e introspectivo. ";
+    
+    if (sentiment === 'positivo') {
+        insights += "Há sinais de otimismo e direcionamento positivo, com foco em crescimento e construção de valor. ";
+    } else if (sentiment === 'negativo') {
+        insights += "Percebe-se alguns desafios e frustrações, mas também uma busca por soluções e melhorias. ";
+    } else {
+        insights += "O tom é equilibrado e reflexivo, mostrando uma análise ponderada da situação. ";
+    }
+    
+    if (themes.includes('trabalho')) {
+        insights += "O contexto profissional está presente e parece ser uma área de atenção importante. ";
+    }
+    
+    if (themes.includes('autoconhecimento')) {
+        insights += "Há evidências de um processo de autoconhecimento e reflexão pessoal em curso.";
+    }
+    
+    return {
+        sentimento: sentiment,
+        confianca: Math.round(confidence * 100) / 100,
+        emocoes: emotions,
+        temas: themes.length > 0 ? themes : ['reflexão pessoal'],
+        insights: insights.trim()
+    };
 }
 
 // Função para mostrar status de processamento
@@ -1724,8 +1858,14 @@ async function transcribeRecording(recordingId) {
             return;
         }
         
+        // Opção para usuário escolher entre Mock ou API Real
+        const useReal = confirm('Usar API OpenAI real?\n\nSim = Processar com sua chave API (consome créditos)\nNão = Demonstração com dados simulados (gratuito)');
+        
         // Processar gravação
-        const result = await processRecording(recording.audioBlob);
+        const result = await processRecording(recording.audioBlob, useReal);
+        
+        // Salvar transformação na gravação
+        await saveTransformation(recordingId, result);
         
         // Mostrar resultados na interface
         showTranscriptionResults(recording, result);
@@ -1734,6 +1874,61 @@ async function transcribeRecording(recordingId) {
         console.error('Erro ao transcrever gravação:', error);
         alert(`Erro ao transcrever: ${error.message}`);
     }
+}
+
+// Função para salvar transformação no IndexedDB
+async function saveTransformation(recordingId, result) {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    return new Promise((resolve, reject) => {
+        const transaction = dbConnection.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        
+        // Carregar gravação existente
+        const getRequest = store.get(recordingId);
+        
+        getRequest.onsuccess = () => {
+            const recording = getRequest.result;
+            if (!recording) {
+                reject(new Error('Gravação não encontrada'));
+                return;
+            }
+            
+            // Adicionar nova transformação
+            if (!recording.transformations) {
+                recording.transformations = [];
+            }
+            
+            const transformation = {
+                id: `transform_${Date.now()}`,
+                type: result.type, // 'real' ou 'mock'
+                created: Date.now(),
+                transcription: result.transcription,
+                analysis: result.analysis,
+                prompt: 'sistema_padrao' // Preparado para seu prompt customizado
+            };
+            
+            recording.transformations.push(transformation);
+            
+            // Salvar gravação atualizada
+            const putRequest = store.put(recording);
+            
+            putRequest.onsuccess = () => {
+                console.log('Transformação salva:', transformation.id);
+                resolve(transformation.id);
+            };
+            
+            putRequest.onerror = () => {
+                reject(putRequest.error);
+            };
+        };
+        
+        getRequest.onerror = () => {
+            reject(getRequest.error);
+        };
+    });
 }
 
 // Função para mostrar resultados da transcrição em modal
@@ -1892,4 +2087,75 @@ function copyTranscription(text) {
         console.error('Erro ao copiar:', err);
         alert('Erro ao copiar texto');
     });
+}
+
+// Função para mostrar histórico de transformações de uma gravação
+async function showTransformationHistory(recordingId) {
+    try {
+        const recording = await loadRecording(recordingId);
+        if (!recording || !recording.transformations || recording.transformations.length === 0) {
+            alert('Nenhuma transformação encontrada para esta gravação');
+            return;
+        }
+        
+        // Criar modal de histórico
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        
+        const transformationsList = recording.transformations.map((transformation, index) => `
+            <div class="bg-gray-900 rounded p-4 mb-3 cursor-pointer hover:bg-gray-800" onclick="showTranscriptionResults({title: '${recording.title}'}, {transcription: ${JSON.stringify(transformation.transcription).replace(/"/g, '&quot;')}, analysis: ${JSON.stringify(transformation.analysis).replace(/"/g, '&quot;')}, type: '${transformation.type}'})">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="font-medium text-white">Transformação ${index + 1}</h4>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs px-2 py-1 rounded ${transformation.type === 'real' ? 'bg-green-600' : 'bg-blue-600'} text-white">
+                            ${transformation.type === 'real' ? 'API Real' : 'Demonstração'}
+                        </span>
+                        <span class="text-xs text-gray-400">${new Date(transformation.created).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                </div>
+                <p class="text-gray-400 text-sm line-clamp-2">${transformation.transcription.text.substring(0, 100)}...</p>
+                <div class="flex items-center mt-2 space-x-4 text-xs text-gray-500">
+                    <span>💭 ${transformation.analysis.sentimento}</span>
+                    <span>🏷️ ${transformation.analysis.temas.length} temas</span>
+                    <span>🎭 ${transformation.analysis.emocoes.length} emoções</span>
+                </div>
+            </div>
+        `).join('');
+        
+        modal.innerHTML = `
+            <div class="bg-gray-800 rounded-lg p-6 max-w-2xl max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-white">Histórico: ${recording.title}</h2>
+                    <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-blue-900 bg-opacity-50 rounded">
+                    <p class="text-blue-200 text-sm">
+                        🧠 <strong>Múltiplas Versões:</strong> Esta gravação tem ${recording.transformations.length} transformação(ões). 
+                        Clique em qualquer uma para visualizar os insights completos.
+                    </p>
+                </div>
+                
+                <div class="space-y-3">
+                    ${transformationsList}
+                </div>
+                
+                <div class="flex justify-end mt-6">
+                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                        Fechar
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+    } catch (error) {
+        console.error('Erro ao carregar histórico:', error);
+        alert('Erro ao carregar transformações');
+    }
 }
