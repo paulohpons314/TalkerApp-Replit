@@ -187,23 +187,8 @@ function createAudioElement(audioURL, audioBlob) {
     audioElement._audioBlob = audioBlob;
     audioElement._audioURL = audioURL;
     
-    // Salvar automaticamente quando metadados estiverem carregados
-    audioElement.addEventListener('loadedmetadata', async () => {
-        try {
-            const duration = audioElement.duration || 0;
-            const recordingId = await saveRecording(audioBlob, duration);
-            console.log('Gravação salva automaticamente com ID:', recordingId);
-            
-            // Marcar elemento como já salvo para evitar duplicação
-            audioElement._savedRecordingId = recordingId;
-            
-            // Atualizar lista de gravações se estiver visível
-            updateRecordingsList();
-        } catch (error) {
-            console.error('Erro ao salvar gravação automaticamente:', error);
-            // Não bloquear o fluxo normal se houver erro na persistência
-        }
-    });
+    // NOVA ARQUITETURA: Salvamento unificado será feito por saveRecordingWithTranscription
+    // (removido salvamento duplicado para evitar registros múltiplos)
 }
 
 // Função para mostrar controles de áudio

@@ -1,25 +1,33 @@
-# TalkerApp - Compressed replit.md
+# TalkerApp - Nova Arquitetura Implementada (v6.0)
 
 ## Overview
 
-TalkerApp is envisioned as the first true "Thought Processor," evolving beyond text processors and spreadsheets to digitalize the stream of consciousness. It achieves this by capturing thoughts naturally through speech and transforming them into malleable content. The core purpose is to facilitate deeper thinking rather than just faster task completion, fostering a profound human-AI dialogue. It aims to be a tool for self-discovery and a catalyst for social, cultural, and technological revolution through conversational human-machine collaboration.
+TalkerApp é o primeiro verdadeiro "Processador de Pensamentos," evoluindo além de processadores de texto e planilhas para digitalizar o fluxo de consciência. Captura pensamentos naturalmente através da fala e os transforma em conteúdo maleável para análise profunda. O propósito principal é facilitar o pensamento mais profundo ao invés de apenas completar tarefas mais rapidamente.
 
-The application is a web-based audio recording, transcription, processing, and text analysis tool powered by AI agents. It features a modern interface built with HTML, CSS, and JavaScript, utilizing the Web Audio API for recording, Whisper API for transcription, and GPT-4o API for text processing and analysis.
+**NOVA ARQUITETURA (Setembro 2025)**: Realinhamento completo baseado no feedback do usuário. Agora prioriza o processamento de texto sobre gerenciamento de áudio, com voz como interface primária para comunicação com IA e transcrição automática de pensamentos capturados em múltiplas versões analíticas.
 
 ## User Preferences
 
 The user prefers an application that is always present but never intrusive, like a studio microphone ready to capture ideas instantly. They want to explore multiple versions of a thought from a single original input, rather than just reaching a final version. The user values the application as a tool for self-knowledge, enabling deep analysis of personal data (e.g., asking "What emotional patterns do you see here this week?" from a dictated diary). The user also expects the application to be a "sparring partner" for analysis, not just text transformation.
 
-## System Architecture
+## Nova Arquitetura do Sistema
 
-The TalkerApp is designed with a "Command Tower" for frictionless capture and a "Content Window with Tabs" for iterative transformation.
+**REALINHAMENTO ESTRUTURAL COMPLETO (v6.0):**
 
-**UI/UX Decisions:**
-- **Command Tower:** Always present but unobtrusive, for instant idea capture.
-- **Content Window with Tabs:** An "editing table" where raw thoughts are analyzed and transformed. Multiple tabs allow exploration of different versions (e.g., summary, email, sentiment analysis, poem) from the same original thought.
-- **Visual Feedback:** Collapsible interface during recording, a rotating border animation, and a greenish luminous effect reactive to audio volume.
-- **Professional Canvas:** RMS audio analysis with Web Audio API, adaptive resolution for blur-free rendering, and interactive seeking.
-- **Modern Interface:** Utilizes Tailwind CSS for styling.
+**Interface Redesenhada:**
+- **Barra Superior Fixa**: Sempre presente mas não intrusiva, para captura instantânea de ideias
+- **Área de Conteúdo Expansível**: "Mesa de edição" onde pensamentos brutos são analisados e transformados
+- **Sistema de Abas Dinâmicas**: Permite exploração de múltiplas versões (resumo, email, análise de sentimento, etc.) do mesmo pensamento original
+- **Editor de Texto Integrado**: Refinamento manual de transcrições antes das transformações
+- **Controles Centralizados**: Copiar/Exportar/Deletar reorganizados na barra superior
+- **Histórico On-Demand**: Lista de gravações aparece apenas quando solicitada
+
+**Fluxo Redesenhado:**
+1. **Gravação** → Interface colapsa automaticamente
+2. **Transcrição Automática** → Sem necessidade de botão manual
+3. **Área Expansível** → Mostra resultado em abas editáveis
+4. **Nova Transformação por Voz** → Solicitar modificações falando
+5. **Múltiplas Versões** → Cada transformação cria nova aba
 
 **Technical Implementations:**
 - **Audio Capture:** Web Audio API (MediaRecorder) for real-time audio chunk collection and WebM blob creation.
