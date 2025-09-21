@@ -116,18 +116,42 @@ function setupMediaRecorderEvents(recorder) {
     };
 }
 
-// Função chamada quando a gravação é finalizada
+// Função chamada quando a gravação é finalizada - NOVA ARQUITETURA: PROCESSAMENTO AUTOMÁTICO
 async function handleRecordingComplete(audioURL, audioBlob) {
-    console.log('=== GRAVAÇÃO COMPLETA ===');
+    console.log('=== GRAVAÇÃO COMPLETA - PROCESSAMENTO AUTOMÁTICO ===');
     console.log('Tamanho do arquivo:', audioBlob.size, 'bytes');
     console.log('Tipo MIME:', audioBlob.type);
-    console.log('URL para reprodução:', audioURL);
     
-    // Criar elemento de áudio e mostrar controles
+    // 1. Expandir janela de conteúdo automaticamente
+    expandContentWindow();
+    
+    // 2. Criar elemento de áudio e mostrar controles
     createAudioElement(audioURL, audioBlob);
     showAudioControls();
     
-    // Não salvar automaticamente aqui - será feito quando os metadados carregarem
+    // 3. TRANSCRIÇÃO AUTOMÁTICA - núcleo da nova arquitetura
+    try {
+        showProcessingStatus('Processando pensamento...', 'Transcrevendo áudio...');
+        
+        // Escolha automática: demonstração por padrão  
+        const useRealAPI = false; // TODO: pegar das configurações do usuário
+        
+        const result = await processRecording(audioBlob, useRealAPI);
+        
+        // 4. Exibir resultado automaticamente na área expansível (não modal)
+        await showTranscriptionInExpandedArea(result);
+        
+        // 5. Salvar automaticamente para persistência
+        await saveRecordingWithTranscription(audioBlob, result);
+        
+        hideProcessingStatus();
+        
+    } catch (error) {
+        console.error('Erro no processamento automático:', error);
+        hideProcessingStatus();
+        // Mostrar erro na área expansível, não modal
+        showErrorInExpandedArea('Erro ao processar áudio: ' + error.message);
+    }
 }
 
 // Função para criar elemento de áudio
@@ -1931,9 +1955,251 @@ async function saveTransformation(recordingId, result) {
     });
 }
 
-// Função para mostrar resultados da transcrição em modal
+// NOVA ARQUITETURA: Exibir transcrição na área expansível (não modal)
+async function showTranscriptionInExpandedArea(result) {
+    console.log('Exibindo transcrição na área expansível:', result);
+    
+    // Garantir que a janela de conteúdo está expandida
+    if (contentWindow.classList.contains('hidden')) {
+        expandContentWindow();
+    }
+    
+    // Limpar conteúdo anterior das abas
+    clearTabsContent();
+    
+    // Atualizar aba "Texto Processado" com transcrição
+    updateTextProcessedTab(result.transcription);
+    
+    // Atualizar aba "Análise" com insights
+    updateAnalysisTab(result.analysis);
+    
+    // Ativar aba "Texto Processado" por padrão
+    activateTab('text-processed');
+    
+    // Habilitar controles na barra superior
+    enableHeaderControls();
+}
+
+// Função para salvar gravação automaticamente com transcrição
+async function saveRecordingWithTranscription(audioBlob, result) {
+    if (!dbConnection) {
+        await initializeDB();
+    }
+    
+    try {
+        // Calcular duração estimada
+        const duration = Math.round(audioBlob.size / 8000); // Estimativa simples
+        
+        const recording = {
+            title: `Pensamento ${new Date().toLocaleString('pt-BR')}`,
+            timestamp: Date.now(),
+            duration: duration,
+            audioBlob: audioBlob,
+            size: audioBlob.size,
+            type: audioBlob.type,
+            folder: 'uncategorized', // Pasta padrão
+            transformations: [{
+                id: `transform_${Date.now()}`,
+                type: result.type,
+                created: Date.now(),
+                transcription: result.transcription,
+                analysis: result.analysis,
+                prompt: 'transcricao_automatica'
+            }]
+        };
+        
+        // Salvar no IndexedDB
+        const transaction = dbConnection.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        await store.add(recording);
+        
+        console.log('Gravação salva automaticamente com transcrição:', recording.title);
+        
+    } catch (error) {
+        console.error('Erro ao salvar gravação:', error);
+        throw error;
+    }
+}
+
+// Função para mostrar erro na área expansível
+function showErrorInExpandedArea(message) {
+    if (contentWindow.classList.contains('hidden')) {
+        expandContentWindow();
+    }
+    
+    const contentArea = document.querySelector('#tabs-content .tab-pane');
+    if (contentArea) {
+        contentArea.innerHTML = `
+            <div class="flex items-center justify-center h-full">
+                <div class="text-center text-red-400">
+                    <svg class="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-lg font-medium mb-2">Erro no Processamento</p>
+                    <p class="text-sm text-gray-400">${message}</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Funções auxiliares para gerenciar abas na área expansível
+function clearTabsContent() {
+    const tabPanes = document.querySelectorAll('#tabs-content .tab-pane');
+    tabPanes.forEach(pane => {
+        pane.innerHTML = '';
+        pane.classList.add('hidden');
+    });
+}
+
+function updateTextProcessedTab(transcription) {
+    const textTab = document.querySelector('#tabs-content .tab-pane:first-child');
+    if (textTab) {
+        textTab.innerHTML = `
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h1 class="text-xl font-bold">Pensamento Processado</h1>
+                    <button id="editTextBtn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors">
+                        ✏️ Editar Texto
+                    </button>
+                </div>
+                
+                <div id="transcriptionDisplay" class="text-sm leading-relaxed bg-gray-800 p-4 rounded-lg">
+                    ${transcription.text}
+                </div>
+                
+                <div id="transcriptionEditor" class="hidden">
+                    <textarea id="transcriptionTextarea" class="w-full h-40 p-3 bg-gray-800 text-white rounded-lg resize-none text-sm leading-relaxed">${transcription.text}</textarea>
+                    <div class="flex space-x-2 mt-2">
+                        <button id="saveTextBtn" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">💾 Salvar</button>
+                        <button id="cancelEditBtn" class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm">↺ Cancelar</button>
+                    </div>
+                </div>
+                
+                <div class="text-xs text-gray-500 mt-4">
+                    <p>Duração: ${Math.floor(transcription.duration / 60)}:${(transcription.duration % 60).toString().padStart(2, '0')}</p>
+                    <p>Idioma: ${transcription.language || 'pt'}</p>
+                </div>
+            </div>
+        `;
+        
+        // Adicionar event listeners para editor
+        setupTextEditor();
+        textTab.classList.remove('hidden');
+    }
+}
+
+function updateAnalysisTab(analysis) {
+    const analysisTab = document.querySelector('#tabs-content .tab-pane:nth-child(2)');
+    if (analysisTab) {
+        analysisTab.innerHTML = `
+            <div class="space-y-6">
+                <h1 class="text-xl font-bold">Análise de Pensamento</h1>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-800 p-4 rounded-lg">
+                        <h3 class="font-semibold text-green-400 mb-2">💭 Sentimento</h3>
+                        <p class="text-lg capitalize">${analysis.sentimento}</p>
+                        <p class="text-xs text-gray-400">Confiança: ${(analysis.confianca * 100).toFixed(0)}%</p>
+                    </div>
+                    
+                    <div class="bg-gray-800 p-4 rounded-lg">
+                        <h3 class="font-semibold text-blue-400 mb-2">🎭 Emoções</h3>
+                        <div class="flex flex-wrap gap-1">
+                            ${analysis.emocoes.map(em => `<span class="px-2 py-1 bg-blue-600 rounded text-xs">${em}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="font-semibold text-purple-400 mb-2">🏷️ Temas Identificados</h3>
+                    <div class="flex flex-wrap gap-2">
+                        ${analysis.temas.map(tema => `<span class="px-3 py-1 bg-purple-600 rounded-full text-sm">${tema}</span>`).join('')}
+                    </div>
+                </div>
+                
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="font-semibold text-orange-400 mb-3">🧠 Insights</h3>
+                    <p class="text-sm leading-relaxed">${analysis.insights}</p>
+                </div>
+            </div>
+        `;
+        analysisTab.classList.add('hidden'); // Esconder por padrão
+    }
+}
+
+function activateTab(tabType) {
+    // Atualizar navegação das abas
+    const tabItems = document.querySelectorAll('.tab-item');
+    const tabPanes = document.querySelectorAll('#tabs-content .tab-pane');
+    
+    tabItems.forEach(item => {
+        item.classList.remove('text-green-400', 'border-green-400');
+        item.classList.add('text-gray-400', 'border-transparent');
+    });
+    
+    tabPanes.forEach(pane => pane.classList.add('hidden'));
+    
+    if (tabType === 'text-processed') {
+        tabItems[0].classList.remove('text-gray-400', 'border-transparent');
+        tabItems[0].classList.add('text-green-400', 'border-green-400');
+        tabPanes[0].classList.remove('hidden');
+    } else if (tabType === 'analysis') {
+        tabItems[1].classList.remove('text-gray-400', 'border-transparent');
+        tabItems[1].classList.add('text-green-400', 'border-green-400');
+        tabPanes[1].classList.remove('hidden');
+    }
+}
+
+function enableHeaderControls() {
+    // Habilitar botões da barra superior (Copiar, Exportar, Apagar)
+    const headerButtons = document.querySelectorAll('header button[title]');
+    headerButtons.forEach(btn => {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    });
+}
+
+// Configurar editor de texto
+function setupTextEditor() {
+    const editBtn = document.getElementById('editTextBtn');
+    const saveBtn = document.getElementById('saveTextBtn');
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    const display = document.getElementById('transcriptionDisplay');
+    const editor = document.getElementById('transcriptionEditor');
+    const textarea = document.getElementById('transcriptionTextarea');
+    
+    if (editBtn) {
+        editBtn.addEventListener('click', () => {
+            display.classList.add('hidden');
+            editor.classList.remove('hidden');
+            textarea.focus();
+        });
+    }
+    
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const newText = textarea.value;
+            display.innerHTML = newText;
+            display.classList.remove('hidden');
+            editor.classList.add('hidden');
+            console.log('Texto editado salvo:', newText);
+        });
+    }
+    
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            display.classList.remove('hidden');
+            editor.classList.add('hidden');
+        });
+    }
+}
+
+// Função para mostrar resultados da transcrição em modal - DEPRECATED - usar área expansível
 function showTranscriptionResults(recording, result) {
-    // Criar modal com resultados
+    // Redirecionar para nova arquitetura
+    console.warn('showTranscriptionResults está obsoleta - usando área expansível');
+    showTranscriptionInExpandedArea(result);
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     
