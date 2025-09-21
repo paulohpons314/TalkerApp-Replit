@@ -1435,8 +1435,8 @@ startRecordingBtn.addEventListener('click', async () => {
         
         console.log('Gravação parada');
         
-        // NOVA ARQUITETURA: Expansão automática será feita por handleRecordingComplete
-        // (removido código duplicado)
+        // NOVA ARQUITETURA: Expansão automática será feita pelo MediaRecorder.onstop
+        // (removido duplicação - handleRecordingComplete já é chamado corretamente)
     }
 });
 
@@ -1848,29 +1848,31 @@ function generateMockAnalysis(text) {
 }
 
 // Função para mostrar status de processamento
-function showProcessingStatus(message) {
-    // Criar ou atualizar elemento de status
-    let statusElement = document.getElementById('processing-status');
-    if (!statusElement) {
-        statusElement = document.createElement('div');
-        statusElement.id = 'processing-status';
-        statusElement.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-        document.body.appendChild(statusElement);
-    }
+function showProcessingStatus(message, detailMessage = '') {
+    // Usar elementos fixos do HTML
+    const indicator = document.getElementById('processingIndicator');
+    const promptStatus = document.getElementById('promptStatus');
+    const statusText = document.getElementById('statusText');
     
-    statusElement.innerHTML = `
-        <div class="flex items-center space-x-2">
-            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            <span>${message}</span>
-        </div>
-    `;
-    statusElement.style.display = 'block';
+    if (indicator && promptStatus) {
+        promptStatus.textContent = message;
+        if (statusText && detailMessage) {
+            statusText.textContent = detailMessage;
+            statusText.classList.remove('hidden');
+        }
+        indicator.classList.remove('hidden');
+    }
 }
 
 function hideProcessingStatus() {
-    const statusElement = document.getElementById('processing-status');
-    if (statusElement) {
-        statusElement.style.display = 'none';
+    const indicator = document.getElementById('processingIndicator');
+    const statusText = document.getElementById('statusText');
+    
+    if (indicator) {
+        indicator.classList.add('hidden');
+    }
+    if (statusText) {
+        statusText.classList.add('hidden');
     }
 }
 
@@ -2685,19 +2687,28 @@ function addNewTransformationTab(result, instruction) {
     });
 }
 
-// Obter transcrição atual
+// Obter transcrição atual (agora com suporte ao editor)
 function getCurrentTranscription() {
-    const textDisplay = document.getElementById('transcriptionDisplay');
-    if (textDisplay) {
-        return textDisplay.textContent || textDisplay.innerText;
+    // Primeira prioridade: editor de transcrição
+    const editor = document.getElementById('transcriptionEditor');
+    if (editor && editor.value.trim()) {
+        return editor.value.trim();
     }
     
-    // Fallback: procurar em abas ativas
+    // Segunda prioridade: display antigo
+    const textDisplay = document.getElementById('transcriptionDisplay');
+    if (textDisplay) {
+        const text = textDisplay.textContent || textDisplay.innerText;
+        if (text && text.trim()) return text.trim();
+    }
+    
+    // Terceira prioridade: conteúdo da aba ativa
     const activeTab = document.querySelector('#tabs-content .tab-pane:not(.hidden)');
     if (activeTab) {
-        const textContent = activeTab.querySelector('.bg-gray-800, .leading-relaxed');
+        const textContent = activeTab.querySelector('.bg-gray-800, .leading-relaxed, textarea');
         if (textContent) {
-            return textContent.textContent || textContent.innerText;
+            const text = textContent.textContent || textContent.innerText || textContent.value;
+            if (text && text.trim()) return text.trim();
         }
     }
     
@@ -2716,4 +2727,318 @@ function setupHeaderControls() {
             loadRecordings(); // Carregar lista de gravações
         });
     }
+    
+    // Configurar botões da barra superior
+    const copyBtn = document.getElementById('copyBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
+    
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            const activeContent = getActiveTabContent();
+            if (activeContent) {
+                navigator.clipboard.writeText(activeContent).then(() => {
+                    showTemporaryMessage('✅ Copiado!');
+                }).catch(() => {
+                    alert('Erro ao copiar texto');
+                });
+            } else {
+                alert('Nenhum conteúdo ativo para copiar');
+            }
+        });
+    }
+    
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            const activeContent = getActiveTabContent();
+            if (activeContent) {
+                downloadAsText(activeContent, 'pensamento.txt');
+            } else {
+                alert('Nenhum conteúdo ativo para exportar');
+            }
+        });
+    }
+    
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => {
+            if (confirm('Deseja apagar o conteúdo atual?')) {
+                deleteActiveTab();
+            }
+        });
+    }
+}
+
+// Funções auxiliares para os controles da barra superior
+function getActiveTabContent() {
+    const activeTab = document.querySelector('#tabs-content .tab-pane:not(.hidden)');
+    if (activeTab) {
+        const contentArea = activeTab.querySelector('.bg-gray-800, .leading-relaxed, textarea');
+        if (contentArea) {
+            return contentArea.textContent || contentArea.innerText || contentArea.value;
+        }
+    }
+    return null;
+}
+
+function downloadAsText(content, filename) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function deleteActiveTab() {
+    const activeTab = document.querySelector('#tabs-content .tab-pane:not(.hidden)');
+    const activeNavTab = document.querySelector('#tabs-nav .tab-item.text-green-400');
+    
+    if (activeTab) activeTab.remove();
+    if (activeNavTab) activeNavTab.remove();
+    
+    // Ativar primeira aba disponível
+    const firstTab = document.querySelector('#tabs-nav .tab-item');
+    if (firstTab) firstTab.click();
+}
+
+function showTemporaryMessage(message) {
+    const statusDiv = document.createElement('div');
+    statusDiv.textContent = message;
+    statusDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50';
+    document.body.appendChild(statusDiv);
+    
+    setTimeout(() => {
+        statusDiv.remove();
+    }, 2000);
+}
+
+// IMPLEMENTAR FUNÇÃO CRÍTICA: showTranscriptionInExpandedArea
+function showTranscriptionInExpandedArea(transcription, recordingData) {
+    console.log('📄 Mostrando transcrição na área expandida');
+    
+    // Expandir a janela de conteúdo se ainda não expandida
+    expandContentWindow();
+    
+    // Criar aba de transcrição com editor
+    createTranscriptionTab(transcription, recordingData);
+    
+    // Ativar a aba de transcrição
+    activateTab('transcription');
+}
+
+// Criar aba de transcrição editável
+function createTranscriptionTab(transcription, recordingData) {
+    const tabsNav = document.getElementById('tabs-nav');
+    const tabsContent = document.getElementById('tabs-content');
+    
+    if (!tabsNav || !tabsContent) return;
+    
+    // Limpar abas existentes e criar nova estrutura
+    tabsNav.innerHTML = '';
+    tabsContent.innerHTML = '';
+    
+    // Criar aba de transcrição
+    const transcriptionTab = document.createElement('a');
+    transcriptionTab.href = '#';
+    transcriptionTab.className = 'tab-item text-green-400 border-green-400 py-2 px-1 border-b-2 font-medium text-sm transition-colors';
+    transcriptionTab.textContent = '📝 Transcrição';
+    transcriptionTab.dataset.tabId = 'transcription';
+    
+    // Criar aba de análise
+    const analysisTab = document.createElement('a');
+    analysisTab.href = '#';
+    analysisTab.className = 'tab-item text-gray-400 border-transparent py-2 px-1 border-b-2 font-medium text-sm transition-colors';
+    analysisTab.textContent = '📊 Análise';
+    analysisTab.dataset.tabId = 'analysis';
+    
+    tabsNav.appendChild(transcriptionTab);
+    tabsNav.appendChild(analysisTab);
+    
+    // Criar conteúdo da aba de transcrição com EDITOR
+    const transcriptionPane = document.createElement('div');
+    transcriptionPane.className = 'tab-pane';
+    transcriptionPane.dataset.tabId = 'transcription';
+    transcriptionPane.innerHTML = `
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">📝 Transcrição</h1>
+                <span class="text-xs text-green-400">✏️ Editável</span>
+            </div>
+            
+            <div class="bg-blue-900/20 p-3 rounded-lg border border-blue-700/30">
+                <p class="text-blue-200 text-sm">
+                    💡 <strong>Dica:</strong> Edite o texto abaixo para refinar sua transcrição antes de criar transformações.
+                </p>
+            </div>
+            
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-gray-300">Texto do seu pensamento:</label>
+                <textarea id="transcriptionEditor" 
+                          class="w-full h-40 bg-gray-800 text-white p-4 rounded-lg border border-gray-600 focus:border-green-400 focus:ring-1 focus:ring-green-400 resize-none" 
+                          placeholder="Sua transcrição aparecerá aqui...">${transcription}</textarea>
+            </div>
+            
+            <div class="flex justify-between items-center text-xs text-gray-500">
+                <span>🕒 Gravado em: ${new Date(recordingData?.timestamp || Date.now()).toLocaleString('pt-BR')}</span>
+                <span id="charCount">${transcription.length} caracteres</span>
+            </div>
+        </div>
+    `;
+    
+    // Criar conteúdo da aba de análise
+    const analysisPane = document.createElement('div');
+    analysisPane.className = 'tab-pane hidden';
+    analysisPane.dataset.tabId = 'analysis';
+    analysisPane.innerHTML = `
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">📊 Análise</h1>
+                <span class="text-xs text-blue-400">🤖 IA</span>
+            </div>
+            
+            <div id="analysisContent" class="text-center text-gray-400 py-8">
+                <div class="animate-pulse">
+                    <div class="w-12 h-12 mx-auto mb-4 border-4 border-blue-400 rounded-full border-t-transparent animate-spin"></div>
+                    <p>Analisando seu pensamento...</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    tabsContent.appendChild(transcriptionPane);
+    tabsContent.appendChild(analysisPane);
+    
+    // Configurar eventos das abas
+    setupTabsEventListeners();
+    
+    // Configurar contador de caracteres no editor
+    const editor = document.getElementById('transcriptionEditor');
+    const charCount = document.getElementById('charCount');
+    
+    if (editor && charCount) {
+        editor.addEventListener('input', () => {
+            charCount.textContent = `${editor.value.length} caracteres`;
+        });
+    }
+    
+    // Iniciar análise automaticamente
+    setTimeout(() => {
+        generateAnalysis(transcription);
+    }, 1500);
+}
+
+// Configurar eventos das abas
+function setupTabsEventListeners() {
+    const tabItems = document.querySelectorAll('.tab-item');
+    
+    tabItems.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tabId = tab.dataset.tabId;
+            if (tabId) {
+                activateTab(tabId);
+            }
+        });
+    });
+}
+
+// Ativar aba específica
+function activateTab(tabId) {
+    // Desativar todas as abas
+    const allTabs = document.querySelectorAll('.tab-item');
+    const allPanes = document.querySelectorAll('.tab-pane');
+    
+    allTabs.forEach(tab => {
+        tab.classList.remove('text-green-400', 'border-green-400');
+        tab.classList.add('text-gray-400', 'border-transparent');
+    });
+    
+    allPanes.forEach(pane => {
+        pane.classList.add('hidden');
+    });
+    
+    // Ativar aba específica
+    const activeTab = document.querySelector(`[data-tab-id="${tabId}"]`);
+    const activePane = document.querySelector(`.tab-pane[data-tab-id="${tabId}"]`);
+    
+    if (activeTab) {
+        activeTab.classList.remove('text-gray-400', 'border-transparent');
+        activeTab.classList.add('text-green-400', 'border-green-400');
+    }
+    
+    if (activePane) {
+        activePane.classList.remove('hidden');
+    }
+}
+
+// Gerar análise do pensamento
+function generateAnalysis(transcription) {
+    const analysisContent = document.getElementById('analysisContent');
+    if (!analysisContent) return;
+    
+    // Mock análise inteligente
+    const mockAnalysis = generateMockAnalysis(transcription);
+    
+    analysisContent.innerHTML = `
+        <div class="space-y-6 text-left">
+            <div class="bg-purple-900/20 p-4 rounded-lg border border-purple-700/30">
+                <h3 class="text-purple-200 font-semibold mb-2">🎭 Sentimento Geral</h3>
+                <p class="text-purple-100">${mockAnalysis.sentiment}</p>
+            </div>
+            
+            <div class="bg-orange-900/20 p-4 rounded-lg border border-orange-700/30">
+                <h3 class="text-orange-200 font-semibold mb-2">🎯 Temas Principais</h3>
+                <ul class="text-orange-100 space-y-1">
+                    ${mockAnalysis.themes.map(theme => `<li>• ${theme}</li>`).join('')}
+                </ul>
+            </div>
+            
+            <div class="bg-green-900/20 p-4 rounded-lg border border-green-700/30">
+                <h3 class="text-green-200 font-semibold mb-2">💡 Insights</h3>
+                <p class="text-green-100">${mockAnalysis.insights}</p>
+            </div>
+            
+            <div class="bg-blue-900/20 p-4 rounded-lg border border-blue-700/30">
+                <h3 class="text-blue-200 font-semibold mb-2">📈 Padrões</h3>
+                <p class="text-blue-100">${mockAnalysis.patterns}</p>
+            </div>
+        </div>
+    `;
+}
+
+// Mock inteligente para análise
+function generateMockAnalysis(text) {
+    const words = text.toLowerCase().split(' ');
+    const wordCount = words.length;
+    
+    // Detectar sentimento baseado em palavras-chave
+    let sentiment = 'Neutro - pensamento reflexivo';
+    if (words.some(w => ['bom', 'ótimo', 'excelente', 'feliz', 'alegre'].includes(w))) {
+        sentiment = 'Positivo - tom otimista e construtivo';
+    } else if (words.some(w => ['problema', 'ruim', 'difícil', 'preocupa'].includes(w))) {
+        sentiment = 'Reflexivo - identificando desafios para resolução';
+    }
+    
+    // Extrair temas baseados em palavras frequentes
+    const themes = [];
+    if (words.some(w => ['trabalho', 'projeto', 'tarefa', 'equipe'].includes(w))) {
+        themes.push('Ambiente profissional');
+    }
+    if (words.some(w => ['ideia', 'inovação', 'criativo', 'solução'].includes(w))) {
+        themes.push('Processo criativo');
+    }
+    if (words.some(w => ['decisão', 'escolha', 'futuro', 'plano'].includes(w))) {
+        themes.push('Planejamento estratégico');
+    }
+    if (themes.length === 0) {
+        themes.push('Reflexão pessoal', 'Organização de ideias');
+    }
+    
+    return {
+        sentiment,
+        themes,
+        insights: `Este pensamento revela um processo de reflexão estruturado com ${wordCount} palavras. Demonstra clareza mental e capacidade de articulação de ideias complexas.`,
+        patterns: `Padrão linguístico organizado com tendência à ${wordCount > 50 ? 'elaboração detalhada' : 'síntese objetiva'}. Vocabulário rico e pensamento linear.`
+    };
 }
