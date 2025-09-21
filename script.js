@@ -1435,10 +1435,8 @@ startRecordingBtn.addEventListener('click', async () => {
         
         console.log('Gravação parada');
         
-        // Expandir a interface para mostrar o conteúdo
-        talkerApp.style.width = '700px';
-        contentWindow.classList.remove('hidden');
-        contentWindow.classList.add('flex');
+        // NOVA ARQUITETURA: Expansão automática será feita por handleRecordingComplete
+        // (removido código duplicado)
     }
 });
 
@@ -1480,8 +1478,12 @@ updateTabEventListeners();
 
 // Inicializar sistema quando DOM estiver carregado
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('TalkerApp carregado');
+    console.log('TalkerApp carregado - Nova Arquitetura Ativada');
     updateTabEventListeners();
+    
+    // NOVA ARQUITETURA: Configurar funcionalidades
+    setupNewTransformationButton();
+    setupHeaderControls();
     
     // Inicializar IndexedDB
     try {
@@ -2423,5 +2425,295 @@ async function showTransformationHistory(recordingId) {
     } catch (error) {
         console.error('Erro ao carregar histórico:', error);
         alert('Erro ao carregar transformações');
+    }
+}
+
+// === NOVA ARQUITETURA: FUNCIONALIDADES PRINCIPAIS ===
+
+// Função para expandir janela de conteúdo automaticamente
+function expandContentWindow() {
+    console.log('Expandindo janela de conteúdo - Nova Arquitetura');
+    talkerApp.style.width = '700px';
+    contentWindow.classList.remove('hidden');
+    contentWindow.classList.add('flex');
+    
+    // Esconder histórico por padrão
+    hideRecordingsHistory();
+}
+
+// Esconder/mostrar histórico de gravações
+function hideRecordingsHistory() {
+    const recordingsPane = document.getElementById('recordingsPane');
+    if (recordingsPane) recordingsPane.classList.add('hidden');
+}
+
+function showRecordingsHistory() {
+    const recordingsPane = document.getElementById('recordingsPane');
+    if (recordingsPane) {
+        recordingsPane.classList.remove('hidden');
+        // Esconder outras abas
+        const otherTabs = document.querySelectorAll('#tabs-content .tab-pane:not(#recordingsPane)');
+        otherTabs.forEach(tab => tab.classList.add('hidden'));
+    }
+}
+
+// Configurar botão "Nova Transformação" para VOZ
+function setupNewTransformationButton() {
+    const newTransformationBtn = document.getElementById('newTransformationBtn');
+    if (newTransformationBtn) {
+        newTransformationBtn.addEventListener('click', async () => {
+            console.log('🎤 Nova Transformação POR VOZ solicitada');
+            
+            // Verificar se há texto processado disponível
+            const currentText = getCurrentTranscription();
+            if (!currentText || currentText.trim().length === 0) {
+                alert('❌ Nenhum pensamento processado disponível.\n\n✅ Grave um áudio primeiro para depois solicitar transformações.');
+                return;
+            }
+            
+            try {
+                await startVoiceTransformation(currentText);
+            } catch (error) {
+                console.error('Erro na transformação por voz:', error);
+                alert('Erro ao processar solicitação: ' + error.message);
+            }
+        });
+    }
+}
+
+// Função para capturar solicitação por voz
+async function startVoiceTransformation(currentText) {
+    const btn = document.getElementById('newTransformationBtn');
+    const icon = document.getElementById('newTransformationIcon');
+    const text = document.getElementById('newTransformationText');
+    
+    if (!btn || !icon || !text) return;
+    
+    // Mudar visual para indicar gravação
+    btn.classList.add('bg-red-500/20');
+    icon.classList.add('animate-pulse');
+    text.textContent = '🎤 Diga sua solicitação...';
+    
+    try {
+        // Solicitar microfone
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: { echoCancellation: true, noiseSuppression: true }
+        });
+        
+        const recorder = new MediaRecorder(stream);
+        const audioChunks = [];
+        
+        recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) audioChunks.push(event.data);
+        };
+        
+        recorder.onstop = async () => {
+            stream.getTracks().forEach(track => track.stop());
+            
+            if (audioChunks.length > 0) {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                await processVoiceTransformation(currentText, audioBlob);
+            }
+            
+            // Restaurar visual
+            btn.classList.remove('bg-red-500/20');
+            icon.classList.remove('animate-pulse');
+            text.textContent = '+ Nova Transformação';
+        };
+        
+        recorder.start();
+        
+        // Parar automaticamente após 15 segundos ou clique
+        const stopRecording = () => {
+            if (recorder.state === 'recording') recorder.stop();
+        };
+        
+        btn.onclick = stopRecording;
+        setTimeout(stopRecording, 15000);
+        
+    } catch (error) {
+        // Restaurar visual em erro
+        btn.classList.remove('bg-red-500/20');
+        icon.classList.remove('animate-pulse');
+        text.textContent = '+ Nova Transformação';
+        throw error;
+    }
+}
+
+// Processar transformação por voz (MOCK inteligente)
+async function processVoiceTransformation(originalText, voiceBlob) {
+    try {
+        showProcessingStatus('🎤 Processando sua solicitação...', 'Interpretando instrução por voz...');
+        
+        // Mock: simular transcrição da solicitação
+        await sleep(1500);
+        const mockInstructions = [
+            'transforme isso em um email formal',
+            'resuma em três pontos principais',
+            'crie bullet points com os temas principais',
+            'faça um resumo executivo',
+            'transforme em formato de relatório'
+        ];
+        const userInstruction = mockInstructions[Math.floor(Math.random() * mockInstructions.length)];
+        
+        console.log('📝 Instrução simulada:', userInstruction);
+        
+        showProcessingStatus('⚙️ Aplicando transformação...', `Executando: "${userInstruction}"`);
+        await sleep(1000);
+        
+        // Gerar transformação baseada na instrução
+        const result = generateTransformationFromPrompt(originalText, userInstruction);
+        
+        // Adicionar nova aba com resultado
+        addNewTransformationTab(result, userInstruction);
+        
+        hideProcessingStatus();
+        
+    } catch (error) {
+        hideProcessingStatus();
+        throw error;
+    }
+}
+
+// Gerar transformação baseada em prompt
+function generateTransformationFromPrompt(originalText, instruction) {
+    const lowerInstruction = instruction.toLowerCase();
+    let transformedText = '';
+    let tabTitle = 'Transformação';
+    
+    if (lowerInstruction.includes('email') || lowerInstruction.includes('formal')) {
+        transformedText = `Prezado(a),\n\nEspero que esteja bem. Gostaria de compartilhar algumas reflexões importantes:\n\n${originalText}\n\nEssas considerações podem ser relevantes para nossa conversa. Fico à disposição para qualquer esclarecimento.\n\nAtenciosamente,\n[Seu nome]`;
+        tabTitle = '✉️ Email';
+        
+    } else if (lowerInstruction.includes('resumo') || lowerInstruction.includes('resume')) {
+        const sentences = originalText.split('.').filter(s => s.trim().length > 10);
+        transformedText = `RESUMO EXECUTIVO:\n\n${sentences.slice(0, Math.min(3, sentences.length)).join('. ')}.`;
+        tabTitle = '📋 Resumo';
+        
+    } else if (lowerInstruction.includes('bullet') || lowerInstruction.includes('pontos')) {
+        const sentences = originalText.split('.').filter(s => s.trim().length > 10);
+        transformedText = 'PONTOS PRINCIPAIS:\n\n' + sentences.slice(0, 4).map(s => `• ${s.trim()}`).join('\n');
+        tabTitle = '📝 Tópicos';
+        
+    } else if (lowerInstruction.includes('relatório')) {
+        transformedText = `RELATÓRIO DE REFLEXÃO\n\nData: ${new Date().toLocaleDateString('pt-BR')}\n\nCONTEÚDO:\n${originalText}\n\nCONCLUSÕES:\nAs reflexões apresentadas demonstram um processo de pensamento estruturado e podem servir como base para decisões futuras.`;
+        tabTitle = '📊 Relatório';
+        
+    } else {
+        transformedText = `Transformação baseada em: "${instruction}"\n\n${originalText}\n\n[Processamento customizado aplicado]`;
+        tabTitle = '🔄 Custom';
+    }
+    
+    return {
+        text: transformedText,
+        title: tabTitle,
+        instruction: instruction,
+        timestamp: Date.now()
+    };
+}
+
+// Adicionar nova aba de transformação
+function addNewTransformationTab(result, instruction) {
+    const tabsNav = document.getElementById('tabs-nav');
+    const tabsContent = document.getElementById('tabs-content');
+    
+    if (!tabsNav || !tabsContent) return;
+    
+    // Criar botão da nova aba
+    const newTabButton = document.createElement('a');
+    newTabButton.href = '#';
+    newTabButton.className = 'tab-item text-green-400 border-green-400 py-2 px-1 border-b-2 font-medium text-sm transition-colors';
+    newTabButton.textContent = result.title;
+    
+    // Desativar outras abas
+    const existingTabs = tabsNav.querySelectorAll('.tab-item');
+    existingTabs.forEach(tab => {
+        tab.classList.remove('text-green-400', 'border-green-400');
+        tab.classList.add('text-gray-400', 'border-transparent');
+    });
+    
+    tabsNav.appendChild(newTabButton);
+    
+    // Criar conteúdo da nova aba
+    const newTabPane = document.createElement('div');
+    newTabPane.className = 'tab-pane';
+    newTabPane.innerHTML = `
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">${result.title}</h1>
+                <span class="text-xs text-green-400">✨ Nova transformação</span>
+            </div>
+            
+            <div class="bg-blue-900/20 p-3 rounded-lg border border-blue-700/30">
+                <p class="text-blue-200 text-sm">
+                    🎤 <strong>Solicitação:</strong> "${instruction}"
+                </p>
+            </div>
+            
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <div class="text-sm leading-relaxed whitespace-pre-line">${result.text}</div>
+            </div>
+            
+            <div class="text-xs text-gray-500">
+                🕒 Criado em: ${new Date(result.timestamp).toLocaleString('pt-BR')}
+            </div>
+        </div>
+    `;
+    
+    // Esconder outras abas e mostrar a nova
+    const existingPanes = tabsContent.querySelectorAll('.tab-pane');
+    existingPanes.forEach(pane => pane.classList.add('hidden'));
+    
+    tabsContent.appendChild(newTabPane);
+    newTabPane.classList.remove('hidden');
+    
+    // Event listener para a nova aba
+    newTabButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        // Ativar esta aba
+        existingTabs.forEach(tab => {
+            tab.classList.remove('text-green-400', 'border-green-400');
+            tab.classList.add('text-gray-400', 'border-transparent');
+        });
+        newTabButton.classList.remove('text-gray-400', 'border-transparent');
+        newTabButton.classList.add('text-green-400', 'border-green-400');
+        
+        // Mostrar este conteúdo
+        existingPanes.forEach(pane => pane.classList.add('hidden'));
+        newTabPane.classList.remove('hidden');
+    });
+}
+
+// Obter transcrição atual
+function getCurrentTranscription() {
+    const textDisplay = document.getElementById('transcriptionDisplay');
+    if (textDisplay) {
+        return textDisplay.textContent || textDisplay.innerText;
+    }
+    
+    // Fallback: procurar em abas ativas
+    const activeTab = document.querySelector('#tabs-content .tab-pane:not(.hidden)');
+    if (activeTab) {
+        const textContent = activeTab.querySelector('.bg-gray-800, .leading-relaxed');
+        if (textContent) {
+            return textContent.textContent || textContent.innerText;
+        }
+    }
+    
+    return null;
+}
+
+// Configurar controles da barra superior
+function setupHeaderControls() {
+    // Configurar botão histórico
+    const historyBtn = document.getElementById('historyBtn');
+    if (historyBtn) {
+        historyBtn.addEventListener('click', () => {
+            console.log('📂 Mostrando histórico de gravações');
+            expandContentWindow();
+            showRecordingsHistory();
+            loadRecordings(); // Carregar lista de gravações
+        });
     }
 }
