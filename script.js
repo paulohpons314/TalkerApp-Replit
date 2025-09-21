@@ -131,7 +131,7 @@ async function handleRecordingComplete(audioURL, audioBlob) {
     
     // 3. TRANSCRIÇÃO AUTOMÁTICA - núcleo da nova arquitetura
     try {
-        showProcessingStatus('Processando pensamento...', 'Transcrevendo áudio...');
+        showProcessingStatus('Transcrevendo áudio...', 'Processando gravação...');
         
         // Escolha automática: demonstração por padrão  
         const useRealAPI = false; // TODO: pegar das configurações do usuário
@@ -139,7 +139,7 @@ async function handleRecordingComplete(audioURL, audioBlob) {
         const result = await processRecording(audioBlob, useRealAPI);
         
         // 4. Exibir resultado automaticamente na área expansível (não modal)
-        await showTranscriptionInExpandedArea(result);
+        await showTranscriptionInExpandedArea(result.transcription.text, {timestamp: Date.now()});
         
         // 5. Salvar automaticamente para persistência
         await saveRecordingWithTranscription(audioBlob, result);
@@ -1683,14 +1683,14 @@ async function analyzeSentiment(text) {
 async function processRecording(audioBlob, useRealAPI = false) {
     try {
         // Mostrar loading
-        showProcessingStatus('Transcrevendo áudio...');
+        showProcessingStatus('Transcrevendo áudio...', 'Convertendo fala em texto...');
         
         let transcription, analysis;
         
         if (useRealAPI) {
             // 1. Usar APIs reais da OpenAI
             transcription = await transcribeAudio(audioBlob);
-            showProcessingStatus('Analisando sentimentos...');
+            showProcessingStatus('Analisando conteúdo...', 'Extraindo insights do texto...');
             analysis = await analyzeSentiment(transcription.text);
         } else {
             // 1. Mock inteligente - simular processamento real
@@ -1702,7 +1702,7 @@ async function processRecording(audioBlob, useRealAPI = false) {
                 language: 'pt'
             };
             
-            showProcessingStatus('Analisando sentimentos...');
+            showProcessingStatus('Analisando conteúdo...', 'Extraindo insights do texto...');
             await sleep(1500); // Simular tempo de análise
             
             analysis = generateMockAnalysis(transcription.text);
@@ -2909,7 +2909,17 @@ function createTranscriptionTab(transcription, recordingData) {
     
     // Iniciar análise automaticamente
     setTimeout(() => {
-        generateAnalysis(transcription);
+        try {
+            generateAnalysis(transcription);
+            console.log('Análise gerada com sucesso para:', transcription.substring(0, 50) + '...');
+        } catch (error) {
+            console.error('Erro ao gerar análise:', error);
+            // Mostrar erro na aba de análise
+            const analysisContent = document.getElementById('analysisContent');
+            if (analysisContent) {
+                analysisContent.innerHTML = '<div class="text-red-400 text-center py-8">Erro ao gerar análise</div>';
+            }
+        }
     }, 1500);
 }
 
