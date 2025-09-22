@@ -1471,8 +1471,8 @@ console.log('🚀 Script carregado - testando API key...');
 async function testarAPIKey() {
     try {
         console.log('🔧 Executando teste de API key...');
-        const key = await getOpenAIKey();
-        console.log('🔑 API Key obtida:', key ? key.substring(0, 15) + '...' : 'NULA');
+        const key = null; // MVP em modo DEMO por segurança
+        console.log('🔑 API Key obtida: NULA (Modo DEMO MVP)');
         
         if (key && key.startsWith('sk-')) {
             console.log('✅ SUCESSO: API KEY VÁLIDA - MODO REAL ATIVO');
@@ -1491,21 +1491,21 @@ async function testarAPIKey() {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('TalkerApp carregado - Nova Arquitetura Ativada');
     
-    // Configurar botão de Nova Transformação
+    // NOVA ARQUITETURA: Configurar funcionalidades
     setupNewTransformationButton();
+    setupHeaderControls();
     
     // Executar teste da API key
     await testarAPIKey();
     updateTabEventListeners();
     
-    // NOVA ARQUITETURA: Configurar funcionalidades
-    setupNewTransformationButton();
-    setupHeaderControls();
-    
     // Inicializar IndexedDB
     try {
         await initializeDB();
         console.log('Sistema de persistência inicializado');
+        
+        // CRÍTICO: Verificar se funções essenciais estão disponíveis
+        verificarFuncoesEssenciais();
         
         // Carregar pastas se já estiver no painel de gravações
         if (!recordingsPane.classList.contains('hidden')) {
@@ -2452,29 +2452,34 @@ function showRecordingsHistory() {
     }
 }
 
-// Função para obter transcrição atual da aba ativa
+// Função para obter transcrição atual (ALINHADA com showTranscriptionInExpandedArea)
 function getCurrentTranscription() {
     try {
-        // Buscar por editor de texto na aba ativa
+        console.log('🔍 Buscando transcrição atual...');
+        
+        // PRIORIDADE 1: Textarea específico da transcrição (criado por showTranscriptionInExpandedArea)
+        const transcriptionTextarea = document.getElementById('transcription-textarea');
+        if (transcriptionTextarea && transcriptionTextarea.value) {
+            console.log('✅ Transcrição encontrada no textarea principal:', transcriptionTextarea.value.substring(0, 50) + '...');
+            return transcriptionTextarea.value.trim();
+        }
+        
+        // PRIORIDADE 2: Buscar na aba ativa
         const activeTab = document.querySelector('.tab-pane:not(.hidden)');
         if (activeTab) {
             const textarea = activeTab.querySelector('textarea');
             if (textarea && textarea.value) {
+                console.log('✅ Transcrição encontrada na aba ativa:', textarea.value.substring(0, 50) + '...');
                 return textarea.value.trim();
-            }
-            
-            // Se não tem textarea, buscar por texto em outros elementos
-            const textContent = activeTab.textContent || activeTab.innerText;
-            if (textContent && textContent.trim().length > 10) {
-                return textContent.trim();
             }
         }
         
-        // Fallback: buscar em qualquer lugar da área de conteúdo
+        // PRIORIDADE 3: Fallback para qualquer textarea na área de conteúdo
         const contentArea = document.getElementById('contentArea');
         if (contentArea) {
             const textarea = contentArea.querySelector('textarea');
             if (textarea && textarea.value) {
+                console.log('✅ Transcrição encontrada na área de conteúdo:', textarea.value.substring(0, 50) + '...');
                 return textarea.value.trim();
             }
         }
@@ -2590,7 +2595,7 @@ async function processVoiceTransformation(originalText, voiceBlob) {
         await createTransformationTab(voiceInstruction.text, transformedContent);
         
         // 4. Salvar transformação
-        await saveTransformation(originalText, voiceInstruction.text, transformedContent);
+        await saveTransformationCustom(originalText, voiceInstruction.text, transformedContent);
         
         hideProcessingStatus();
         console.log('✅ Transformação concluída com sucesso');
@@ -2599,19 +2604,16 @@ async function processVoiceTransformation(originalText, voiceBlob) {
         console.error('❌ Erro no processamento:', error);
         hideProcessingStatus();
         
-        // Fallback para modo DEMO se APIs não funcionarem
-        console.log('🔄 Tentando modo DEMO...');
+        // Fallback para modo DEMO se APIs não funcionarem  
+        console.log('🔄 Modo DEMO ativado (API key não disponível)');
         await processVoiceTransformationDemo(originalText, voiceBlob);
     }
 }
 
 // Processar transformação usando GPT-4o
 async function processTextTransformation(originalText, instruction) {
-    const OPENAI_API_KEY = await getOpenAIKey();
-    
-    if (!OPENAI_API_KEY) {
-        throw new Error('API key não disponível');
-    }
+    // 🛡️ MVP: APIs desabilitadas por segurança - usar apenas modo DEMO
+    throw new Error('APIs reais desabilitadas para MVP - usando modo DEMO');
     
     const prompt = `Você é um assistente especializado em transformação de textos. Sua tarefa é aplicar a instrução fornecida ao texto original, mantendo a essência e melhorando conforme solicitado.
 
@@ -2684,7 +2686,7 @@ Para usar transformações reais, configure sua API key da OpenAI.`;
 
         // Criar aba e salvar
         await createTransformationTab(randomInstruction, transformedContent);
-        await saveTransformation(originalText, randomInstruction, transformedContent);
+        await saveTransformationCustom(originalText, randomInstruction, transformedContent);
         
         hideProcessingStatus();
         console.log('✅ Transformação DEMO concluída');
@@ -2815,6 +2817,171 @@ function showTransformationTab(tabId) {
     });
 }
 
+// ===========================================
+// FUNÇÕES CRÍTICAS PARA MVP FUNCIONAR
+// ===========================================
+
+// Implementar funções essenciais para fluxo MVP
+function implementarFuncoesCriticasMVP() {
+    console.log('🔧 Implementando funções críticas para MVP...');
+    
+    // Garantir que processRecording existe
+    if (typeof window.processRecording === 'undefined') {
+        window.processRecording = processRecording;
+    }
+    
+    // Garantir que checkAPIKeyAvailable existe
+    if (typeof window.checkAPIKeyAvailable === 'undefined') {
+        window.checkAPIKeyAvailable = checkAPIKeyAvailable;
+    }
+    
+    // Garantir que showTranscriptionInExpandedArea existe
+    if (typeof window.showTranscriptionInExpandedArea === 'undefined') {
+        window.showTranscriptionInExpandedArea = showTranscriptionInExpandedArea;
+    }
+    
+    console.log('✅ Funções críticas implementadas');
+}
+
+// Verificar disponibilidade da API key (sempre falso para MVP)
+async function checkAPIKeyAvailable() {
+    console.log('🔍 Verificando API key...');
+    // MVP: sempre retorna false para forçar modo DEMO
+    return false;
+}
+
+// Processar gravação em modo DEMO
+async function processRecording(audioBlob, useRealAPI = false) {
+    console.log('🎯 Processando gravação em modo DEMO...');
+    
+    try {
+        // Simular processamento
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const mockTexts = [
+            'Esta é uma transcrição de demonstração do TalkerApp. O sistema está funcionando em modo DEMO para validação do MVP. Você pode usar o botão "Nova Transformação" para experimentar diferentes versões analíticas deste texto.',
+            'Pensamento capturado: Preciso organizar minhas ideias sobre o projeto. O TalkerApp está mostrando potencial como ferramenta de análise de pensamentos. A interface está intuitiva e o sistema de abas dinâmicas funciona bem.',
+            'Reflexão gravada: Hoje tive várias insights interessantes sobre produtividade e criatividade. O processo de falar em voz alta ajuda a clarificar os pensamentos de forma surpreendente. Vou usar isso mais frequentemente.',
+            'Nota de voz: Lembrar de implementar as funcionalidades restantes do sistema. O MVP está tomando forma e a arquitetura está sólida. Próximos passos incluem refinamentos na interface e testes de usuário.'
+        ];
+        
+        const randomText = mockTexts[Math.floor(Math.random() * mockTexts.length)];
+        
+        const result = {
+            transcription: {
+                text: randomText,
+                confidence: 0.95,
+                language: 'pt-BR'
+            },
+            analysis: {
+                sentiment: 'positivo',
+                emotions: ['esperança', 'determinação'],
+                themes: ['produtividade', 'desenvolvimento', 'criatividade'],
+                insights: 'Demonstração de análise em modo MVP'
+            },
+            duration: audioBlob.size / 1000, // estimativa
+            type: 'demo'
+        };
+        
+        console.log('✅ Processamento DEMO concluído:', result.transcription.text.substring(0, 50) + '...');
+        return result;
+        
+    } catch (error) {
+        console.error('❌ Erro no processamento DEMO:', error);
+        throw error;
+    }
+}
+
+// Mostrar transcrição na área expandida
+function showTranscriptionInExpandedArea(recording, result) {
+    console.log('📝 Mostrando transcrição na interface...');
+    
+    try {
+        // Garantir que a área de conteúdo está visível
+        const contentWindow = document.getElementById('contentWindow');
+        const contentArea = document.getElementById('contentArea');
+        
+        if (contentWindow) {
+            contentWindow.classList.remove('hidden');
+            contentWindow.style.display = 'flex';
+        }
+        
+        if (contentArea) {
+            // Criar ou atualizar aba de texto processado
+            let textTab = document.getElementById('transcription-tab');
+            if (!textTab) {
+                textTab = document.createElement('div');
+                textTab.id = 'transcription-tab';
+                textTab.className = 'tab-pane p-4';
+                
+                textTab.innerHTML = `
+                    <div class="mb-4">
+                        <h2 class="text-lg font-bold mb-2">📝 Texto Processado</h2>
+                        <div class="text-xs text-gray-400 mb-3">
+                            Transcrição automática • Modo: ${result.type === 'demo' ? 'DEMO' : 'Real'}
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                        <textarea 
+                            id="transcription-textarea"
+                            class="w-full h-64 bg-transparent text-white resize-none outline-none" 
+                            placeholder="Transcrição aparecerá aqui..."
+                            style="font-family: inherit;"
+                        >${result.transcription.text}</textarea>
+                        <div class="text-xs text-gray-500 mt-2">
+                            <span id="transcription-char-count">${result.transcription.text.length} caracteres</span> • 
+                            Editável • Confiança: ${Math.round((result.transcription.confidence || 0.95) * 100)}%
+                        </div>
+                    </div>
+                `;
+                
+                // Esconder outras abas
+                const allTabPanes = contentArea.querySelectorAll('.tab-pane');
+                allTabPanes.forEach(pane => pane.classList.add('hidden'));
+                
+                contentArea.appendChild(textTab);
+                
+                // Configurar contador de caracteres
+                const textarea = textTab.querySelector('#transcription-textarea');
+                const charCount = textTab.querySelector('#transcription-char-count');
+                textarea.addEventListener('input', () => {
+                    charCount.textContent = `${textarea.value.length} caracteres`;
+                });
+            } else {
+                // Atualizar conteúdo existente
+                const textarea = textTab.querySelector('#transcription-textarea');
+                if (textarea) {
+                    textarea.value = result.transcription.text;
+                    textarea.dispatchEvent(new Event('input'));
+                }
+                textTab.classList.remove('hidden');
+            }
+            
+            // Ativar aba na navegação
+            const tabsNav = document.getElementById('tabs-nav');
+            if (tabsNav) {
+                const allTabs = tabsNav.querySelectorAll('.tab-item');
+                allTabs.forEach(tab => {
+                    tab.classList.remove('text-green-400', 'border-green-400');
+                    tab.classList.add('text-gray-400', 'border-transparent');
+                });
+                
+                // Ativar primeira aba (Texto Processado)
+                const firstTab = allTabs[0];
+                if (firstTab) {
+                    firstTab.classList.remove('text-gray-400', 'border-transparent');
+                    firstTab.classList.add('text-green-400', 'border-green-400');
+                }
+            }
+        }
+        
+        console.log('✅ Transcrição exibida na interface');
+        
+    } catch (error) {
+        console.error('❌ Erro ao mostrar transcrição:', error);
+    }
+}
+
 // Gerar transformação baseada em prompt
 function generateTransformationFromPrompt(originalText, instruction) {
     const lowerInstruction = instruction.toLowerCase();
@@ -2925,32 +3092,76 @@ function addNewTransformationTab(result, instruction) {
     });
 }
 
-// Obter transcrição atual (agora com suporte ao editor)
-function getCurrentTranscription() {
-    // Primeira prioridade: editor de transcrição
-    const editor = document.getElementById('transcriptionEditor');
-    if (editor && editor.value.trim()) {
-        return editor.value.trim();
-    }
-    
-    // Segunda prioridade: display antigo
-    const textDisplay = document.getElementById('transcriptionDisplay');
-    if (textDisplay) {
-        const text = textDisplay.textContent || textDisplay.innerText;
-        if (text && text.trim()) return text.trim();
-    }
-    
-    // Terceira prioridade: conteúdo da aba ativa
-    const activeTab = document.querySelector('#tabs-content .tab-pane:not(.hidden)');
-    if (activeTab) {
-        const textContent = activeTab.querySelector('.bg-gray-800, .leading-relaxed, textarea');
-        if (textContent) {
-            const text = textContent.textContent || textContent.innerText || textContent.value;
-            if (text && text.trim()) return text.trim();
+// Função para salvar transformação personalizada (para as novas transformações por voz)
+async function saveTransformationCustom(originalText, instruction, transformedContent) {
+    try {
+        console.log('💾 Salvando transformação customizada...');
+        
+        if (!dbConnection) {
+            await initializeDB();
         }
+        
+        const transformation = {
+            id: 'transformation_' + Date.now(),
+            originalText: originalText.substring(0, 200) + (originalText.length > 200 ? '...' : ''),
+            instruction: instruction,
+            content: transformedContent,
+            timestamp: Date.now(),
+            type: 'voice_transformation'
+        };
+        
+        const transaction = dbConnection.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        
+        await new Promise((resolve, reject) => {
+            const request = store.add(transformation);
+            request.onsuccess = () => {
+                console.log('✅ Transformação salva com ID:', transformation.id);
+                resolve(request.result);
+            };
+            request.onerror = () => {
+                console.error('❌ Erro ao salvar transformação:', request.error);
+                reject(request.error);
+            };
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro na persistência da transformação:', error);
+        // Não bloquear o fluxo se houver erro de persistência
+    }
+}
+
+// Verificar se todas as funções essenciais estão disponíveis (segurança MVP)
+function verificarFuncoesEssenciais() {
+    console.log('🔍 Verificando funções essenciais para MVP...');
+    
+    const funcoesEssenciais = [
+        'processRecording',
+        'showTranscriptionInExpandedArea', 
+        'checkAPIKeyAvailable',
+        'getCurrentTranscription',
+        'createTransformationTab',
+        'saveTransformationCustom'
+    ];
+    
+    let todasFuncoesOK = true;
+    
+    funcoesEssenciais.forEach(nomeFuncao => {
+        if (typeof window[nomeFuncao] === 'function') {
+            console.log(`✅ ${nomeFuncao} - OK`);
+        } else {
+            console.error(`❌ ${nomeFuncao} - FALTANDO!`);
+            todasFuncoesOK = false;
+        }
+    });
+    
+    if (todasFuncoesOK) {
+        console.log('✅ Todas as funções essenciais verificadas - MVP pronto!');
+    } else {
+        console.warn('⚠️ Algumas funções podem estar faltando - MVP pode ter limitações');
     }
     
-    return null;
+    return todasFuncoesOK;
 }
 
 // Configurar controles da barra superior
