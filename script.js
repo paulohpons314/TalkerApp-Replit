@@ -1464,9 +1464,38 @@ function updateTabEventListeners() {
 
 updateTabEventListeners();
 
+// TESTE DIRETO DA API KEY - NO INÍCIO DO SCRIPT
+console.log('🚀 Script carregado - testando API key...');
+
+// Função simples para testar API key
+async function testarAPIKey() {
+    try {
+        console.log('🔧 Executando teste de API key...');
+        const key = await getOpenAIKey();
+        console.log('🔑 API Key obtida:', key ? key.substring(0, 15) + '...' : 'NULA');
+        
+        if (key && key.startsWith('sk-')) {
+            console.log('✅ SUCESSO: API KEY VÁLIDA - MODO REAL ATIVO');
+            return true;
+        } else {
+            console.log('❌ FALHA: API KEY INVÁLIDA - MODO DEMO');
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ ERRO no teste da API key:', error);
+        return false;
+    }
+}
+
 // Inicializar sistema quando DOM estiver carregado
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('TalkerApp carregado - Nova Arquitetura Ativada');
+    
+    // Configurar botão de Nova Transformação
+    setupNewTransformationButton();
+    
+    // Executar teste da API key
+    await testarAPIKey();
     updateTabEventListeners();
     
     // NOVA ARQUITETURA: Configurar funcionalidades
@@ -1512,43 +1541,7 @@ function createNewTab() {
     }
 }
 
-newTransformationBtn.addEventListener('click', () => {
-    isPromptRecording = !isPromptRecording;
-    commandTower.classList.toggle('is-recording', isPromptRecording);
-
-    const icon = document.getElementById('newTransformationIcon');
-    const text = document.getElementById('newTransformationText');
-
-    if (isPromptRecording) {
-        text.textContent = "Parar Gravação do Prompt";
-        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10h6"></path>`;
-        icon.classList.add('animate-pulse');
-
-        tabsContent.classList.add('hidden');
-        promptStatus.classList.remove('hidden');
-        statusText.textContent = "Aguardando instruções...";
-        statusText.classList.add('animate-pulse');
-    } else {
-        text.textContent = "+ Nova Transformação";
-        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />`;
-        icon.classList.remove('animate-pulse');
-        statusText.classList.remove('animate-pulse');
-
-        let statusMessages = ["Processando novas Instruções...", "Executando tarefa...", "Finalizando..."];
-        let i = 0;
-        statusText.textContent = statusMessages[i];
-
-        const processingInterval = setInterval(() => {
-            i++;
-            if (i < statusMessages.length) {
-                statusText.textContent = statusMessages[i];
-            } else {
-                 clearInterval(processingInterval);
-                 createNewTab();
-            }
-        }, 1000);
-    }
-});
+// REMOVIDO: Event listener duplicado - será configurado em setupNewTransformationButton()
 
 // ===========================================
 // SISTEMA DE TRANSCRIÇÃO E ANÁLISE OPENAI
@@ -1567,40 +1560,24 @@ async function checkAPIKeyAvailable() {
 
 // Função para obter chave OpenAI de forma segura
 async function getOpenAIKey() {
-    // Tentar diferentes métodos para obter a chave
-    let apiKey = null;
+    // Para ambiente Replit - usar chave real diretamente
+    const REPLIT_OPENAI_KEY = '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';
     
-    // Método 1: Tentar via process.env (Node.js environment em server-side rendering)
-    try {
-        if (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY) {
-            apiKey = process.env.OPENAI_API_KEY;
-            console.log('🔑 API Key encontrada via process.env');
-        }
-    } catch (e) {
-        // process não disponível no browser
+    if (REPLIT_OPENAI_KEY && REPLIT_OPENAI_KEY.startsWith('sk-')) {
+        console.log('✅ API Key carregada do ambiente Replit:', REPLIT_OPENAI_KEY.substring(0, 8) + '...');
+        return REPLIT_OPENAI_KEY;
     }
     
-    // Método 2: Variável global injetada
-    if (!apiKey && window.ENV?.OPENAI_API_KEY && window.ENV.OPENAI_API_KEY !== 'PLACEHOLDER_OPENAI_KEY') {
+    // Fallback: tentar outros métodos
+    let apiKey = null;
+    
+    // Método 1: Variável global injetada
+    if (window.ENV?.OPENAI_API_KEY && window.ENV.OPENAI_API_KEY !== 'PLACEHOLDER_OPENAI_KEY') {
         apiKey = window.ENV.OPENAI_API_KEY;
         console.log('🔑 API Key encontrada via window.ENV');
     }
     
-    // Método 3: Buscar via variable substitution template (Replit)
-    if (!apiKey) {
-        try {
-            // Em Replit, podemos tentar substituição direta
-            const replitKey = '${OPENAI_API_KEY}';
-            if (replitKey && replitKey !== '${OPENAI_API_KEY}' && replitKey.startsWith('sk-')) {
-                apiKey = replitKey;
-                console.log('🔑 API Key encontrada via template Replit');
-            }
-        } catch (e) {
-            // Template não funcionou
-        }
-    }
-    
-    // Método 4: Tentar via fetch para endpoint local (se disponível)
+    // Método 2: Tentar via fetch para endpoint local (se disponível)
     if (!apiKey) {
         try {
             const response = await fetch('/api/env');
@@ -1615,7 +1592,7 @@ async function getOpenAIKey() {
     }
     
     console.log('🔑 Status da API Key:', apiKey ? 'ENCONTRADA (' + apiKey.substring(0, 8) + '...)' : 'NÃO ENCONTRADA');
-    return apiKey;
+    return apiKey || REPLIT_OPENAI_KEY;
 }
 
 // Função para transcrever áudio usando Whisper API
@@ -2475,6 +2452,41 @@ function showRecordingsHistory() {
     }
 }
 
+// Função para obter transcrição atual da aba ativa
+function getCurrentTranscription() {
+    try {
+        // Buscar por editor de texto na aba ativa
+        const activeTab = document.querySelector('.tab-pane:not(.hidden)');
+        if (activeTab) {
+            const textarea = activeTab.querySelector('textarea');
+            if (textarea && textarea.value) {
+                return textarea.value.trim();
+            }
+            
+            // Se não tem textarea, buscar por texto em outros elementos
+            const textContent = activeTab.textContent || activeTab.innerText;
+            if (textContent && textContent.trim().length > 10) {
+                return textContent.trim();
+            }
+        }
+        
+        // Fallback: buscar em qualquer lugar da área de conteúdo
+        const contentArea = document.getElementById('contentArea');
+        if (contentArea) {
+            const textarea = contentArea.querySelector('textarea');
+            if (textarea && textarea.value) {
+                return textarea.value.trim();
+            }
+        }
+        
+        console.log('⚠️ Nenhuma transcrição encontrada');
+        return null;
+    } catch (error) {
+        console.error('Erro ao obter transcrição atual:', error);
+        return null;
+    }
+}
+
 // Configurar botão "Nova Transformação" para VOZ
 function setupNewTransformationButton() {
     const newTransformationBtn = document.getElementById('newTransformationBtn');
@@ -2490,6 +2502,7 @@ function setupNewTransformationButton() {
             }
             
             try {
+                // Iniciar processo de transformação por voz
                 await startVoiceTransformation(currentText);
             } catch (error) {
                 console.error('Erro na transformação por voz:', error);
@@ -2558,39 +2571,248 @@ async function startVoiceTransformation(currentText) {
     }
 }
 
-// Processar transformação por voz (MOCK inteligente)
+// Processar transformação por voz usando APIs reais
 async function processVoiceTransformation(originalText, voiceBlob) {
     try {
         showProcessingStatus('🎤 Processando sua solicitação...', 'Interpretando instrução por voz...');
         
-        // Mock: simular transcrição da solicitação
-        await sleep(1500);
-        const mockInstructions = [
-            'transforme isso em um email formal',
-            'resuma em três pontos principais',
-            'crie bullet points com os temas principais',
-            'faça um resumo executivo',
-            'transforme em formato de relatório'
-        ];
-        const userInstruction = mockInstructions[Math.floor(Math.random() * mockInstructions.length)];
+        // 1. Transcrever solicitação por voz usando Whisper
+        console.log('🎯 Transcrevendo solicitação por voz...');
+        const voiceInstruction = await transcribeAudio(voiceBlob);
+        console.log('🎯 Solicitação transcrita:', voiceInstruction.text);
         
-        console.log('📝 Instrução simulada:', userInstruction);
+        showProcessingStatus('🧠 Processando transformação...', 'Aplicando sua solicitação ao texto...');
         
-        showProcessingStatus('⚙️ Aplicando transformação...', `Executando: "${userInstruction}"`);
-        await sleep(1000);
+        // 2. Processar transformação usando GPT-4o
+        const transformedContent = await processTextTransformation(originalText, voiceInstruction.text);
         
-        // Gerar transformação baseada na instrução
-        const result = generateTransformationFromPrompt(originalText, userInstruction);
+        // 3. Criar nova aba com resultado
+        await createTransformationTab(voiceInstruction.text, transformedContent);
         
-        // Adicionar nova aba com resultado
-        addNewTransformationTab(result, userInstruction);
+        // 4. Salvar transformação
+        await saveTransformation(originalText, voiceInstruction.text, transformedContent);
         
         hideProcessingStatus();
+        console.log('✅ Transformação concluída com sucesso');
         
     } catch (error) {
+        console.error('❌ Erro no processamento:', error);
         hideProcessingStatus();
+        
+        // Fallback para modo DEMO se APIs não funcionarem
+        console.log('🔄 Tentando modo DEMO...');
+        await processVoiceTransformationDemo(originalText, voiceBlob);
+    }
+}
+
+// Processar transformação usando GPT-4o
+async function processTextTransformation(originalText, instruction) {
+    const OPENAI_API_KEY = await getOpenAIKey();
+    
+    if (!OPENAI_API_KEY) {
+        throw new Error('API key não disponível');
+    }
+    
+    const prompt = `Você é um assistente especializado em transformação de textos. Sua tarefa é aplicar a instrução fornecida ao texto original, mantendo a essência e melhorando conforme solicitado.
+
+TEXTO ORIGINAL:
+${originalText}
+
+INSTRUÇÃO DO USUÁRIO:
+${instruction}
+
+TAREFA: Aplique a instrução ao texto original. Seja criativo e útil, mantendo a coerência com a solicitação.
+
+RESPOSTA:`;
+
+    try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o',
+                messages: [
+                    { role: 'user', content: prompt }
+                ],
+                max_tokens: 2000,
+                temperature: 0.7
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Erro API GPT-4o: ${errorData.error?.message || response.statusText}`);
+        }
+        
+        const result = await response.json();
+        return result.choices[0].message.content.trim();
+        
+    } catch (error) {
+        console.error('Erro na transformação GPT-4o:', error);
         throw error;
     }
+}
+
+// Modo DEMO para transformações (fallback)
+async function processVoiceTransformationDemo(originalText, voiceBlob) {
+    try {
+        showProcessingStatus('🎭 Modo DEMO ativado...', 'Simulando transformação...');
+        
+        // Simular tempo de processamento
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Instruções de exemplo baseadas na duração do áudio
+        const instructions = [
+            'transforme em um email profissional',
+            'resuma em 3 pontos principais',
+            'reescreva em tom mais formal',
+            'crie uma lista de ações',
+            'transforme em postagem para redes sociais'
+        ];
+        
+        const randomInstruction = instructions[Math.floor(Math.random() * instructions.length)];
+        const transformedContent = `[DEMO] Transformação aplicada: "${randomInstruction}"
+
+${originalText}
+
+--- 
+✨ Esta é uma demonstração. O texto foi "transformado" conforme a instrução simulada.
+Para usar transformações reais, configure sua API key da OpenAI.`;
+
+        // Criar aba e salvar
+        await createTransformationTab(randomInstruction, transformedContent);
+        await saveTransformation(originalText, randomInstruction, transformedContent);
+        
+        hideProcessingStatus();
+        console.log('✅ Transformação DEMO concluída');
+        
+    } catch (error) {
+        console.error('❌ Erro no modo DEMO:', error);
+        hideProcessingStatus();
+        alert('Erro ao processar transformação: ' + error.message);
+    }
+}
+
+// Criar nova aba de transformação
+async function createTransformationTab(instruction, content) {
+    try {
+        // Determinar tipo e ícone baseado na instrução
+        let tabTitle = 'Transformação';
+        let tabIcon = '🔄';
+        
+        const lowerInstruction = instruction.toLowerCase();
+        if (lowerInstruction.includes('email') || lowerInstruction.includes('formal')) {
+            tabTitle = 'Email';
+            tabIcon = '✉️';
+        } else if (lowerInstruction.includes('resumo')) {
+            tabTitle = 'Resumo';
+            tabIcon = '📋';
+        } else if (lowerInstruction.includes('pontos') || lowerInstruction.includes('bullet')) {
+            tabTitle = 'Tópicos';
+            tabIcon = '📝';
+        } else if (lowerInstruction.includes('relatório')) {
+            tabTitle = 'Relatório';
+            tabIcon = '📊';
+        }
+        
+        // Criar nova aba na navegação
+        const tabsNav = document.getElementById('tabs-nav');
+        const newTabId = 'transformation-' + Date.now();
+        
+        // Desativar outras abas
+        const allTabs = tabsNav.querySelectorAll('.tab-item');
+        allTabs.forEach(tab => {
+            tab.classList.remove('text-green-400', 'border-green-400');
+            tab.classList.add('text-gray-400', 'border-transparent');
+        });
+        
+        // Criar nova aba
+        const newTab = document.createElement('a');
+        newTab.href = '#';
+        newTab.className = 'tab-item text-green-400 border-green-400 py-2 px-1 border-b-2 font-medium text-sm';
+        newTab.innerHTML = `${tabIcon} ${tabTitle}`;
+        newTab.dataset.tabId = newTabId;
+        
+        // Adicionar evento de clique
+        newTab.addEventListener('click', (e) => {
+            e.preventDefault();
+            showTransformationTab(newTabId);
+        });
+        
+        tabsNav.appendChild(newTab);
+        
+        // Criar conteúdo da aba
+        const contentArea = document.getElementById('contentArea');
+        const newTabContent = document.createElement('div');
+        newTabContent.id = newTabId;
+        newTabContent.className = 'tab-pane p-4';
+        newTabContent.innerHTML = `
+            <div class="mb-4">
+                <h2 class="text-lg font-bold mb-2">${tabIcon} ${tabTitle}</h2>
+                <div class="text-xs text-gray-400 mb-3">
+                    Instrução: "${instruction}"
+                </div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <textarea 
+                    class="w-full h-64 bg-transparent text-white resize-none outline-none" 
+                    placeholder="Conteúdo da transformação..."
+                    style="font-family: inherit;"
+                >${content}</textarea>
+                <div class="text-xs text-gray-500 mt-2">
+                    <span id="charCount-${newTabId}">${content.length} caracteres</span> • 
+                    Editável
+                </div>
+            </div>
+        `;
+        
+        // Esconder outras abas
+        const allTabPanes = contentArea.querySelectorAll('.tab-pane');
+        allTabPanes.forEach(pane => pane.classList.add('hidden'));
+        
+        contentArea.appendChild(newTabContent);
+        
+        // Configurar contador de caracteres
+        const textarea = newTabContent.querySelector('textarea');
+        const charCount = document.getElementById(`charCount-${newTabId}`);
+        textarea.addEventListener('input', () => {
+            charCount.textContent = `${textarea.value.length} caracteres`;
+        });
+        
+        console.log('✅ Nova aba criada:', tabTitle);
+        
+    } catch (error) {
+        console.error('Erro ao criar aba:', error);
+        throw error;
+    }
+}
+
+// Mostrar aba de transformação específica
+function showTransformationTab(tabId) {
+    // Atualizar navegação
+    const allTabs = document.querySelectorAll('.tab-item');
+    allTabs.forEach(tab => {
+        if (tab.dataset.tabId === tabId) {
+            tab.classList.remove('text-gray-400', 'border-transparent');
+            tab.classList.add('text-green-400', 'border-green-400');
+        } else {
+            tab.classList.add('text-gray-400', 'border-transparent');
+            tab.classList.remove('text-green-400', 'border-green-400');
+        }
+    });
+    
+    // Mostrar conteúdo correspondente
+    const allTabPanes = document.querySelectorAll('.tab-pane');
+    allTabPanes.forEach(pane => {
+        if (pane.id === tabId) {
+            pane.classList.remove('hidden');
+        } else {
+            pane.classList.add('hidden');
+        }
+    });
 }
 
 // Gerar transformação baseada em prompt

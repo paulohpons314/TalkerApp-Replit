@@ -233,7 +233,15 @@
     </div>
 
     <!-- Injetar variáveis de ambiente para cliente -->
-    <script src="env.js"></script>
-    <script src="script.js?v=6.1.0" defer></script>
+    <script>
+        console.log('🔧 Configuração direta de API key...');
+        window.ENV = window.ENV || {};
+        
+        // Para desenvolvimento - usar fetch para buscar da shell se necessário
+        window.ENV.OPENAI_API_KEY = null; // Será definida pelo script.js
+        
+        console.log('⚡ Configuração preparada - aguardando script.js...');
+    </script>
+    <script src="script.js?v=6.3.0" defer></script>
 </body>
 </html>
