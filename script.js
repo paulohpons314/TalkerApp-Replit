@@ -133,8 +133,11 @@ async function handleRecordingComplete(audioURL, audioBlob) {
     try {
         showProcessingStatus('Transcrevendo áudio...', 'Processando gravação...');
         
-        // Escolha automática: demonstração por padrão  
-        const useRealAPI = false; // TODO: pegar das configurações do usuário
+        // Escolha automática: verificar se temos API key válida
+        const hasValidAPIKey = await checkAPIKeyAvailable();
+        const useRealAPI = hasValidAPIKey; // Usar APIs reais se tivermos chave válida
+        console.log('🔑 API Key disponível:', hasValidAPIKey ? 'SIM' : 'NÃO');
+        console.log('🚀 Modo de processamento:', useRealAPI ? 'REAL OpenAI API' : 'DEMO (Mock)');
         
         const result = await processRecording(audioBlob, useRealAPI);
         
@@ -1551,39 +1554,67 @@ newTransformationBtn.addEventListener('click', () => {
 // SISTEMA DE TRANSCRIÇÃO E ANÁLISE OPENAI
 // ===========================================
 
+// Função para verificar se API key está disponível
+async function checkAPIKeyAvailable() {
+    try {
+        const apiKey = await getOpenAIKey();
+        return apiKey && apiKey !== 'PLACEHOLDER_OPENAI_KEY' && apiKey.length > 10 && apiKey.startsWith('sk-');
+    } catch (error) {
+        console.error('Erro ao verificar API key:', error);
+        return false;
+    }
+}
+
 // Função para obter chave OpenAI de forma segura
 async function getOpenAIKey() {
     // Tentar diferentes métodos para obter a chave
     let apiKey = null;
     
-    // Método 1: Variável global injetada
-    if (window.ENV?.OPENAI_API_KEY && window.ENV.OPENAI_API_KEY !== 'PLACEHOLDER_OPENAI_KEY') {
-        apiKey = window.ENV.OPENAI_API_KEY;
+    // Método 1: Tentar via process.env (Node.js environment em server-side rendering)
+    try {
+        if (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY) {
+            apiKey = process.env.OPENAI_API_KEY;
+            console.log('🔑 API Key encontrada via process.env');
+        }
+    } catch (e) {
+        // process não disponível no browser
     }
     
-    // Método 2: Tentar via fetch para endpoint local (se disponível)
+    // Método 2: Variável global injetada
+    if (!apiKey && window.ENV?.OPENAI_API_KEY && window.ENV.OPENAI_API_KEY !== 'PLACEHOLDER_OPENAI_KEY') {
+        apiKey = window.ENV.OPENAI_API_KEY;
+        console.log('🔑 API Key encontrada via window.ENV');
+    }
+    
+    // Método 3: Buscar via variable substitution template (Replit)
+    if (!apiKey) {
+        try {
+            // Em Replit, podemos tentar substituição direta
+            const replitKey = '${OPENAI_API_KEY}';
+            if (replitKey && replitKey !== '${OPENAI_API_KEY}' && replitKey.startsWith('sk-')) {
+                apiKey = replitKey;
+                console.log('🔑 API Key encontrada via template Replit');
+            }
+        } catch (e) {
+            // Template não funcionou
+        }
+    }
+    
+    // Método 4: Tentar via fetch para endpoint local (se disponível)
     if (!apiKey) {
         try {
             const response = await fetch('/api/env');
             if (response.ok) {
                 const data = await response.json();
                 apiKey = data.OPENAI_API_KEY;
+                console.log('🔑 API Key encontrada via fetch /api/env');
             }
         } catch (e) {
             // Endpoint não disponível, continuar
         }
     }
     
-    // Método 3: Prompt do usuário como fallback
-    if (!apiKey) {
-        apiKey = prompt('Para usar transcrição, insira sua chave OpenAI:\n(Será usada apenas nesta sessão)');
-        if (apiKey) {
-            // Armazenar temporariamente na sessão
-            window.ENV = window.ENV || {};
-            window.ENV.OPENAI_API_KEY = apiKey;
-        }
-    }
-    
+    console.log('🔑 Status da API Key:', apiKey ? 'ENCONTRADA (' + apiKey.substring(0, 8) + '...)' : 'NÃO ENCONTRADA');
     return apiKey;
 }
 
